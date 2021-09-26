@@ -1,17 +1,24 @@
 
 import cufflinks as cf
+from numpy import nan
 from time import sleep
 from pathlib import Path
+from re import sub, UNICODE
 from datetime import datetime
+from unicodedata import normalize
+from string import ascii_uppercase
 from typing import Dict, Type, Union
 from numpy.core.records import array
 from requests import get as get_req
 from IPython.display import clear_output
+from sklearn.cluster import KMeans
 from sklearn.pipeline import Pipeline
+from sklearn.mixture import GaussianMixture
 from sklearn.linear_model import LinearRegression
+from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler, StandardScaler, RobustScaler
-from pandas import DataFrame, read_csv, date_range, to_datetime
+from pandas import DataFrame, Series, read_csv, date_range, to_datetime
 
 cf.go_offline()
 
@@ -119,6 +126,19 @@ class BaseClass:
         df[f'{date_col}_yearmonth'] = df[f'{date_col}_year']+' - '+df[f'{date_col}_month']
         return df
 
+    def clean_text(self, text:str, pattern:str="[^a-zA-Z0-9\s]", lower:bool=False) -> str:
+        clean = normalize('NFD', str(text).replace('\n',' \n ')).encode('ascii', 'ignore')
+        clean = sub(pattern, ' ', clean.decode('utf-8'),flags=UNICODE)
+        clean = sub(r'\s{2,}', ' ', clean)
+        clean = sub(r'^nan$', '', clean)
+        if lower: clean = clean.lower()
+        return clean
+
+    def clean_number(self, text:str):
+        clean = sub('[^0-9\.]', '', str(text))
+        if clean=='': clean = nan
+        return clean
+
     def multishift(self, df:DataFrame, id_cols:list[str], date_col:str='fecha', shifts:Union[list,tuple,range]=range(1,22), **pivot_args):
         '''
         Escalona los valores para crear una Tabla Analítica de Datos con formato: valor hoy, valor 1 día antes, dos días antes, etc
@@ -176,7 +196,7 @@ class BaseClass:
         y = df[actual].sum(axis=1).values
         return X, y
 
-    def train_reg_model(self, X:Union[DataFrame,array], y:array, scaler:Type[Union[MinMaxScaler, StandardScaler, RobustScaler]]=RobustScaler, model=LinearRegression):
+    def train_reg_model(self, X:Union[DataFrame,array], y:array, scaler:Type[Union[MinMaxScaler, StandardScaler, RobustScaler]]=RobustScaler, model:Type[Union[LinearRegression, RandomForestRegressor]]=LinearRegression):
         '''
         Escala y entrena un modelo, devuelve el score, el objeto tipo Pipeline y la relevancia de cada variable
         '''
@@ -226,6 +246,24 @@ class BaseClass:
         for x in set(df.index):
             df_id = df.loc[x,:].reset_index(drop=True).set_index(date_col)
             df_id.iplot(title=x)
+
+    def make_clusters(self, df:DataFrame, cluster_cols:list, n_clusters:int=5, kmeans:bool=False) -> tuple([Series,Pipeline]):
+        cluster_obj = KMeans(n_clusters, random_state=22) if kmeans else GaussianMixture(n_clusters, random_state=22)
+        pipe_clust = Pipeline(steps=[('scaler', RobustScaler()), ('cluster', cluster_obj)])
+        cluster_dict = dict(zip(range(n_clusters), ascii_uppercase[:n_clusters]))
+        df['cluster'] = pipe_clust.fit_predict(df[cluster_cols])
+        df['cluster'] = df['cluster'].map(cluster_dict)
+        return df['cluster'], pipe_clust
+
+    def profiles(self, df:DataFrame, cluster_col:str='cluster') -> DataFrame:
+        prof = {}
+        num_cols = df.head(1).describe().columns.tolist()
+        prof['numeric'] = df.pivot_table(index=cluster_col, values=num_cols)
+        cat_cols = [x for x in df.columns if x not in num_cols]
+        df['n'] = 1
+        for col in cat_cols:
+            prof[col] = df.pivot_table(index=col, columns=cluster_col, aggfunc={'n':sum})
+        return prof
 
 ####################################################################################################################
 
