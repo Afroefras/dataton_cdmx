@@ -14,10 +14,10 @@ from pandas import DataFrame, Series, read_csv, date_range, to_datetime
 
 # SKLEARN
 from sklearn.cluster import KMeans
-from sklearn.pipeline import Pipeline
 from sklearn.mixture import GaussianMixture
 from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.pipeline import Pipeline, FeatureUnion
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler, StandardScaler, RobustScaler
 
@@ -25,11 +25,12 @@ cf.go_offline()
 
 class BaseClass: 
     
-    def __init__(self, base_dir: str) -> None: 
+    def __init__(self, base_dir: str, file_name:str) -> None: 
         '''
         Obtener un directorio como texto y convertirlo a tipo Path
         '''
         self.base_dir = Path(base_dir)
+        self.file_name = file_name
 
     def cool_print(self, text: str, sleep_time: float=0.03, by_word: bool=False) -> None: 
         '''
@@ -74,26 +75,28 @@ class BaseClass:
             # Al devolver un objeto json, llamar a "records"
             df = DataFrame(get_req(full_url).json()['result']['records'])
             df_shape = df.shape
-            self.cool_print(f'Archivo importado desde:  {full_url}\nCon {df_shape[0]} renglones y {df_shape[-1]} columnas')
+            self.cool_print(f'Archivo importado desde: {full_url}\nCon {df_shape[0]} renglones y {df_shape[-1]} columnas')
             return df
-        except:  self.cool_print(f'Error al obtener desde:  {full_url}\nIntenta de nuevo!')
+        except: self.cool_print(f'Error al obtener desde: {full_url}\nIntenta de nuevo!')
 
-    def get_csv(self, file_name: str, **kwargs) -> DataFrame: 
+    def get_csv(self, **kwargs) -> DataFrame: 
         '''
         Obtener tabla a partir de un archivo .csv
         '''
-        try:  
-            df = read_csv(self.base_dir.joinpath(f'{file_name}.csv'), low_memory=False, **kwargs)
-            self.cool_print(f'Archivo con nombre {file_name}.csv fue encontrado en {self.base_dir}')
+        df = read_csv(self.base_dir.joinpath(f'{self.file_name}.csv'), low_memory=False, **kwargs)
+        try: 
+            df = read_csv(self.base_dir.joinpath(f'{self.file_name}.csv'), low_memory=False, **kwargs)
+            self.cool_print(f'Archivo con nombre {self.file_name}.csv fue encontrado en {self.base_dir}')
             return df
-        except:  self.cool_print(f'No se encontró el archivo con nombre {file_name}.csv en {self.base_dir}\nSi el archivo csv existe, seguramente tiene un encoding y/o separador diferente a "utf-8" y "," respectivamente\nIntenta de nuevo!')
+        except: self.cool_print(f'No se encontró el archivo con nombre {self.file_name}.csv en {self.base_dir}\nSi el archivo csv existe, seguramente tiene un encoding y/o separador diferente a "utf-8" y "," respectivamente\nIntenta de nuevo!')
     
-    def export_csv(self, df: DataFrame, file_name: str, **kwargs) -> None: 
+    def export_csv(self, df: DataFrame, name_suffix=None, **kwargs) -> None: 
         '''
         Exportar un archivo en formato csv
         '''
-        df.to_csv(self.base_dir.joinpath(f'{file_name}.csv'), **kwargs)
-        self.cool_print(f'Archivo:  {file_name}.csv fue exportado exitosamente en:  {self.base_dir}')
+        export_name = f'{self.file_name}.csv' if name_suffix==None else f'{self.file_name}_{name_suffix}.csv'
+        df.to_csv(self.base_dir.joinpath(export_name), **kwargs)
+        self.cool_print(f'Archivo: {export_name} fue exportado exitosamente en: {self.base_dir}')
 
     def api_export(self, export_kwargs: Dict={}, **api_kwargs) -> DataFrame: 
         '''
@@ -107,13 +110,13 @@ class BaseClass:
         '''
         Función que permite elegir alguna de las 2 formas de importar los datos. Si es API permite exportar el resultado
         '''
-        if api:  
+        if api: 
             # Leer y exportar?
-            if api_export:  df = self.api_export(**kwargs)
+            if api_export: df = self.api_export(**kwargs)
             # O sólo leer de API
-            else:  df = self.get_api(**kwargs)
+            else: df = self.get_api(**kwargs)
         # De otro modo, importar desde csv
-        else:  df = self.get_csv(**kwargs)
+        else: df = self.get_csv(**kwargs)
         return df
 
     def date_vars(self, df: DataFrame, date_col: str='fecha') -> DataFrame: 
@@ -122,36 +125,36 @@ class BaseClass:
         # Para extraer la división de año
         df[f'{date_col}_year'] = df[date_col].dt.year.map(int).map(str)
         # Trimestre a dos caracteres
-        df[f'{date_col}_quarter'] = df[date_col].dt.quarter.map(lambda x:  str(int(x)).zfill(2))
+        df[f'{date_col}_quarter'] = df[date_col].dt.quarter.map(lambda x: str(int(x)).zfill(2))
         # Y mes a dos caracteres
-        df[f'{date_col}_month'] = df[date_col].dt.month.map(lambda x:  str(int(x)).zfill(2))
+        df[f'{date_col}_month'] = df[date_col].dt.month.map(lambda x: str(int(x)).zfill(2))
         # Concatenar el año, tanto trimestre como con el mes
         df[f'{date_col}_yearquarter'] = df[f'{date_col}_year']+' - '+df[f'{date_col}_quarter']
         df[f'{date_col}_yearmonth'] = df[f'{date_col}_year']+' - '+df[f'{date_col}_month']
         return df
 
-    def clean_text(self, text: str, pattern: str="[^a-zA-Z0-9\s]", lower: bool=True) -> str: 
+    def clean_text(self, text: str, pattern: str="[^a-zA-Z0-9\s]", lower: bool=False) -> str: 
         # Eliminar acentos áàäâã
         clean = normalize('NFD', str(text).replace('\n',' \n ')).encode('ascii', 'ignore')
         clean = sub(pattern, ' ', clean.decode('utf-8'),flags=UNICODE)
         # Mantener sólo un espacio
         clean = sub(r'\s{2,}', ' ', clean)
-        # str(null) = "nan", omitir dicho texto
-        clean = sub(r'^nan$', '', clean)
         # Minúsculas si el parámetro lo indica
-        if lower:  clean = clean.lower()
+        if lower: clean = clean.lower()
+        # Si el registro estaba vacío, indicar nulo
+        if clean in ('','nan'): clean = nan
         return clean
 
     def clean_number(self, text: str): 
         # Omitir todo lo que no sea número o "."
         clean = sub('[^0-9\.]', '', str(text))
         # Si el registro estaba vacío, indicar nulo
-        if clean=='':  clean = nan
+        if clean in ('','nan'): clean = nan
         return clean
 
     def multishift(self, df: DataFrame, id_cols: list[str], date_col: str='fecha', shifts: Union[list,tuple,range]=range(1,22), **pivot_args): 
         '''
-        Escalona los valores para crear una Tabla Analítica de Datos con formato:  valor hoy, valor 1 día antes, dos días antes, etc
+        Escalona los valores para crear una Tabla Analítica de Datos con formato: valor hoy, valor 1 día antes, dos días antes, etc
         '''
         df[date_col] = df[date_col].map(to_datetime).dt.date
 
@@ -184,18 +187,18 @@ class BaseClass:
                 aux = aux.join(df_id.iloc[: ,1: ].shift(i).rename(columns={x: f'{x}_{str(i).zfill(2)}' for x in cols}))
             aux[id_col] = row
             total = total.append(aux,ignore_index=True)
-        try:  total.set_index(id_cols+[date_col], inplace=True)
-        except:  pass
-        finally:  return total
+        try: total.set_index(id_cols+[date_col], inplace=True)
+        except: pass
+        finally: return total
 
-    def apply_multishift(self, df: DataFrame, file_name: str, export_shifted: bool=True, **kwargs) -> tuple[DataFrame, array]: 
+    def apply_multishift(self, df: DataFrame, export_shifted: bool=True, **kwargs) -> tuple[DataFrame, array]: 
         # Aplicar la función "multishift" con los parámetros personalizados
         df = self.multishift(df, **kwargs)
         df.dropna(inplace=True)
         df = df[sorted(df.columns)].copy()
 
         # Tal vez el usuario quiere exportar los resultados
-        if export_shifted:  self.export_csv(df, f'{file_name}_shifted.csv')
+        if export_shifted: self.export_csv(df, name_suffix='shifted')
 
         # Obtener la lista de las columnas de todos los días previos
         prev = df.head(1).filter(regex='_\d+').columns.tolist()
@@ -218,14 +221,14 @@ class BaseClass:
 
         # Entrena y guarda el score en test
         test_score = pipe_obj.fit(X_train,y_train).score(X_test, y_test)
-        test_show = f"Score:  {'{:.2%}'.format(test_score)}"
+        test_show = f"Score: {'{:.2%}'.format(test_score)}"
         # Guarda el score en train, para revisar sobreajuste
         train_score = pipe_obj.score(X_train,y_train)
-        train_show = f"Training score:  {'{:.2%}'.format(train_score)}"
+        train_show = f"Training score: {'{:.2%}'.format(train_score)}"
 
         # Imprime los scores
         to_show = [test_show, train_show, "Estas son las variables más relevantes: "]
-        for x in to_show:  self.cool_print(x)
+        for x in to_show: self.cool_print(x)
         print(to_show)
 
         # Elige la forma de obtener las variables más representativas
@@ -234,7 +237,7 @@ class BaseClass:
         coef_var = DataFrame(zip(X.columns, most_important_features)).sort_values(1, ascending=False).reset_index(drop=True)
         return pipe_obj, coef_var
 
-    def real_vs_est(self, X, y, model): 
+    def real_vs_est(self, X: DataFrame, y: array, model: Type[Union[LinearRegression, RandomForestRegressor]]) -> DataFrame: 
         # De todo el conjunto de datos...
         df = X.join(DataFrame(y, index=X.index, columns=['real']))
         # Predice el el valor...
@@ -242,7 +245,7 @@ class BaseClass:
         # Y devuelve sólo las columna real y la estimada
         return df[['real','est']]
 
-    def plot_real_vs_est(self, X, y, model, id_col, date_col='fecha', from_year: int=1900, to_year: int=datetime.now().year): 
+    def plot_real_vs_est(self, X: DataFrame, y: array, model: Type[Union[LinearRegression, RandomForestRegressor]], id_col: str, date_col='fecha', from_year: int=1900, to_year: int=datetime.now().year): 
         # Obtener real vs estimado
         pred = self.real_vs_est(X, y, model).reset_index()
 
@@ -290,10 +293,10 @@ class BaseClass:
 ####################################################################################################################
 
 class IngresoMetro(BaseClass): 
-    def __init__(self, base_dir: str) -> None: 
-        super().__init__(base_dir)
+    def __init__(self, base_dir: str, file_name: str) -> None:
+        super().__init__(base_dir, file_name)
 
-    def wrangling_ingreso(self, df, date_col: str='fecha', add_cols: list[str]=['tipo_ingreso'], **kwargs): 
+    def wrangling_ingreso(self, df: DataFrame, date_col: str='fecha', add_cols: list[str]=['tipo_ingreso'], **kwargs): 
         df.drop(['id','_id'], axis=1, inplace=True)
         # Las líneas del metro son columnas, crear sólo una columna indicando a qué línea se refiere
         df = df.melt(id_vars=[date_col]+add_cols, var_name='linea', value_name='ingreso')
@@ -304,10 +307,10 @@ class IngresoMetro(BaseClass):
 ####################################################################################################################
 
 class AfluenciaTransporte(BaseClass): 
-    def __init__(self, base_dir: str) -> None: 
-        super().__init__(base_dir)
+    def __init__(self, base_dir: str, file_name: str) -> None: 
+        super().__init__(base_dir, file_name)
 
-    def wrangling_afluencia(self, df, value_col='afluencia_total_preliminar', **kwargs): 
+    def wrangling_afluencia(self, df: DataFrame, value_col='afluencia_total_preliminar', **kwargs): 
         df.drop(['id','_id'], axis=1, inplace=True)
         # Eliminar "," que convierten el valor a texto
         df[value_col] = df[value_col].map(str).str.replace(',', '')
