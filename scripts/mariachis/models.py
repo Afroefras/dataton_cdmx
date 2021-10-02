@@ -145,7 +145,7 @@ class BaseClass:
         if clean in ('','nan'): clean = nan
         return clean
 
-    def clean_number(self, text: str): 
+    def clean_number(self, text: str) -> str: 
         # Omitir todo lo que no sea número o "."
         clean = sub('[^0-9\.]', '', str(text))
         # Si el registro estaba vacío, indicar nulo
