@@ -152,7 +152,7 @@ class BaseClass:
         if clean in ('','nan'): clean = nan
         return clean
 
-    def multishift(self, df: DataFrame, id_cols: list[str], date_col: str='fecha', shifts: Union[list,tuple,range]=range(1,22), **pivot_args): 
+    def multishift(self, df: DataFrame, id_cols: list, date_col: str='fecha', shifts: Union[list,tuple,range]=range(1,22), **pivot_args): 
         '''
         Escalona los valores para crear una Tabla Analítica de Datos con formato: valor hoy, valor 1 día antes, dos días antes, etc
         '''
@@ -191,7 +191,7 @@ class BaseClass:
         except: pass
         finally: return total
 
-    def apply_multishift(self, df: DataFrame, export_shifted: bool=True, **kwargs) -> tuple[DataFrame, array]: 
+    def apply_multishift(self, df: DataFrame, export_shifted: bool=True, **kwargs) -> tuple: 
         # Aplicar la función "multishift" con los parámetros personalizados
         df = self.multishift(df, **kwargs)
         df.dropna(inplace=True)
@@ -260,11 +260,10 @@ class BaseClass:
             df_id = df.loc[x,: ].reset_index(drop=True).set_index(date_col)
             df_id.iplot(title=x)
 
-    def make_clusters(self, df: DataFrame, cluster_cols: list, n_clusters: int=5, kmeans: bool=False, scaler: Type[Union[MinMaxScaler, StandardScaler, RobustScaler]]=RobustScaler) -> tuple([Series,Pipeline]): 
-        # Definir objeto para clustering
-        cluster_obj = KMeans(n_clusters, random_state=22) if kmeans else GaussianMixture(n_clusters, random_state=22)
+    def make_clusters(self, df: DataFrame, n_clusters: int=5, cols: list=None, scaler=RobustScaler, cluster_obj=GaussianMixture) -> tuple([Series,Pipeline]): 
+        cluster_cols = cols if cols!=None else df.columns
         # Primero escalar, después agrupar
-        pipe_clust = Pipeline(steps=[('scaler', scaler()), ('cluster', cluster_obj)])
+        pipe_clust = Pipeline(steps=[('scaler', scaler()), ('cluster', cluster_obj(n_clusters, random_state=22))])
         # Nueva columna definiendo el clúster
         df['cluster'] = pipe_clust.fit_predict(df[cluster_cols])
         # Diccionario para reemplazar A: 1, B: 2, etc
@@ -296,7 +295,7 @@ class IngresoMetro(BaseClass):
     def __init__(self, base_dir: str, file_name: str) -> None:
         super().__init__(base_dir, file_name)
 
-    def wrangling_ingreso(self, df: DataFrame, date_col: str='fecha', add_cols: list[str]=['tipo_ingreso'], **kwargs): 
+    def wrangling_ingreso(self, df: DataFrame, date_col: str='fecha', add_cols: list=['tipo_ingreso'], **kwargs): 
         df.drop(['id','_id'], axis=1, inplace=True)
         # Las líneas del metro son columnas, crear sólo una columna indicando a qué línea se refiere
         df = df.melt(id_vars=[date_col]+add_cols, var_name='linea', value_name='ingreso')
