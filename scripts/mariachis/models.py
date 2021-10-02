@@ -10,14 +10,15 @@ from string import ascii_uppercase
 from typing import Dict, Type, Union
 from requests import get as get_req
 from IPython.display import clear_output, display
-from pandas import DataFrame, Series, read_csv, date_range, to_datetime
+from pandas import DataFrame, Series, read_csv, date_range, to_datetime, cut
 
+from kmodes.kmodes import KModes
 # SKLEARN
-from sklearn.cluster import KMeans
+from sklearn.pipeline import Pipeline
 from sklearn.mixture import GaussianMixture
+from sklearn.preprocessing import OneHotEncoder
 from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.pipeline import Pipeline, FeatureUnion
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler, StandardScaler, RobustScaler
 
@@ -49,11 +50,11 @@ class BaseClass:
         # Esperar con el texto completo
         sleep(1.7)
         # Borrar el texto de pantalla
-        clear_output()
-        return acum
+        # clear_output()
+        # return acum
     
     def __str__(self) -> str: 
-        return self.cool_print(f'Directorio: \t{self.base_dir}')
+        return f'Directorio: \t{self.base_dir}'
     
     def __len__(self) -> str: 
         '''
@@ -187,9 +188,7 @@ class BaseClass:
                 aux = aux.join(df_id.iloc[: ,1: ].shift(i).rename(columns={x: f'{x}_{str(i).zfill(2)}' for x in cols}))
             aux[id_col] = row
             total = total.append(aux,ignore_index=True)
-        try: total.set_index(id_cols+[date_col], inplace=True)
-        except: pass
-        finally: return total
+        return total.set_index(id_cols+[date_col], inplace=True)
 
     def apply_multishift(self, df: DataFrame, export_shifted: bool=True, **kwargs) -> tuple: 
         # Aplicar la función "multishift" con los parámetros personalizados
@@ -254,16 +253,17 @@ class BaseClass:
         df = pred[(pred['year']>=from_year)&(pred['year']<=to_year)].copy()
         df.drop(columns='year', inplace=True)
 
-        # Mostrar comportamiento real vs estimado por línea del metro
+        # Mostrar comportamiento real vs estimado
         df.set_index(id_col, inplace=True)
         for x in set(df.index): 
             df_id = df.loc[x,: ].reset_index(drop=True).set_index(date_col)
             df_id.iplot(title=x)
 
-    def make_clusters(self, df: DataFrame, n_clusters: int=5, cols: list=None, scaler=RobustScaler, cluster_obj=GaussianMixture) -> tuple([Series,Pipeline]): 
+    def make_clusters(self, df: DataFrame, n_clusters: int=5, cols: list=None, scaler=RobustScaler, cluster_obj=GaussianMixture, **kwargs) -> tuple([Series,Pipeline]): 
         cluster_cols = cols if cols!=None else df.columns
         # Primero escalar, después agrupar
-        pipe_clust = Pipeline(steps=[('scaler', scaler()), ('cluster', cluster_obj(n_clusters, random_state=22))])
+        if scaler==None: pipe_clust = cluster_obj(n_clusters, random_state=22, **kwargs)
+        else: pipe_clust = Pipeline(steps=[('scaler', scaler()), ('cluster', cluster_obj(n_clusters, random_state=22, **kwargs))])
         # Nueva columna definiendo el clúster
         df['cluster'] = pipe_clust.fit_predict(df[cluster_cols])
         # Diccionario para reemplazar A: 1, B: 2, etc
@@ -276,7 +276,7 @@ class BaseClass:
         # Obtener las variables numéricas
         num_cols = df.sample(frac=0.01).describe().columns.tolist()
         # Promedio de cada variable numérica según el clúster
-        prof['numeric'] = df.pivot_table(index=cluster_col, values=num_cols)
+        if len(num_cols)>0: prof['numeric'] = df.pivot_table(index=cluster_col, values=num_cols)
         # Obtener las variables categóricas
         cat_cols = [x for x in df.columns if x not in num_cols]
         # Columna auxiliar para contabilizar
@@ -285,9 +285,8 @@ class BaseClass:
             # Cuenta de registros para cada variable categórica según el clúster
             prof[col] = df.pivot_table(index=col, columns=cluster_col, aggfunc={'n': sum})
         # Mostrar cada perfilamiento en un DataFrame con formato condicional
-        for var in prof.values(): 
-            print(var)
-            display(var.fillna(0).style.format(number_format).background_gradient('Blues'))
+        for var in prof.values():
+            display(var.fillna(0).T.style.format(number_format).background_gradient('Blues'))
 
 ####################################################################################################################
 
@@ -317,3 +316,84 @@ class AfluenciaTransporte(BaseClass):
         # Obtener f(X)=y "escalonando" los valores de días previos
         X, y = self.apply_multishift(df, **kwargs)
         return X,y
+        
+####################################################################################################################
+class InterrupcionEmbarazo(BaseClass):
+    def __init__(self, base_dir: str, file_name: str) -> None: 
+        super().__init__(base_dir, file_name)
+
+    def wrangling_aborto(self, df: DataFrame, clean_dict: Dict, date_col: str='fingreso', export_result: bool=True, **kwargs):
+        # Sólo registros con fecha
+        df = df[df[date_col].notnull()].reset_index()
+        # Crear variables de fecha
+        df = self.date_vars(df, date_col)
+
+        # Obtener las variables numéricas
+        vars_num = list(set(
+            clean_dict['vars_numbin']+
+            list(clean_dict['vars_num'].keys())
+        ))
+        
+        # Limpiar si hay texto de variables numéricas
+        for col in vars_num:
+            df[col] = df[col].map(self.clean_number).astype(float)
+        
+        # Función para convertir float:1.0 --> str:'01'
+        def two_char(n):
+            return str(int(n)).zfill(2)
+
+        # Crear rangos de variables numéricas
+        for col, to_group in clean_dict['vars_num'].items():
+            # Encontrar el bin al cual el dato pertenece
+            df[f'rango_{col}'] = cut(df[col], bins=[-1]+to_group+[1000])
+            # Convertirlo a texto: [1.0 - 5.0] --> '01 a 05'
+            df[f'rango_{col}'] = df[f'rango_{col}'].map(lambda x: two_char(x.left+1)+' a '+two_char(x.right) if x!=nan else nan)
+            # Corregir algunas etiquetas como: '01 a 01' --> '01' y también '03 a 1000' --> '> 02'
+            df[[f'rango_{col}']] = df[[f'rango_{col}']].replace({
+                **{two_char(to_group[-1]+1)+' a 1000': '> '+two_char(to_group[-1])},
+                **{two_char(x)+' a '+two_char(x): two_char(x) for x in to_group}
+            })
+            # No perder de vista los valores ausentes. "La falta de información también es información"
+            df[f'rango_{col}'] = df[f'rango_{col}'].map(lambda x: nan if str(x)=='nan' else str(x))
+        
+        # Sólo saber si son mayores a 0 o no, tomar en cuenta que NaN > 0 --> False
+        for col in clean_dict['vars_numbin']:
+            df[col] = df[col].map(lambda x: '> 0' if x>0 else x)
+
+        # Obtener las variables que serán binarias
+        vars_cat = list(set(
+            clean_dict['vars_first_word']+
+            list(clean_dict['vars_cat'].keys())+
+            clean_dict['vars_yes_no']+
+            clean_dict['vars_just_fill_na']
+        ))
+
+        # Omitir acentos de variables categóricas
+        for col in vars_cat:
+            df[col] = df[col].map(self.clean_text)
+
+        # Obtener la primer palabra
+        for col in clean_dict['vars_first_word']:
+            df[col] = df[col].str.split().str[0]
+
+        # Agrupar categorías
+        for col,to_group in clean_dict['vars_cat'].items():
+            df[col] = df[col].map(to_group)
+
+        cluster_cols = vars_cat+[f'rango_{col}' for col in clean_dict['vars_num'].keys()]+clean_dict['vars_numbin']
+        
+        # Lo que quedo vacío, marcar como "DESCONOCIDO"
+        for col in cluster_cols:
+            df[col] = df[col].fillna('DESCONOCIDO').astype(str)
+
+        # Crear una columna por clase para todas las variables, que ahora son categóricas
+        ohe = OneHotEncoder().fit(df[cluster_cols])
+        X = DataFrame(ohe.transform(df[cluster_cols]).toarray(), index=df.index, columns=ohe.get_feature_names_out())
+
+        # Obtener grupos 
+        X['cluster'], cluster_pipe = self.make_clusters(X, scaler=None, cluster_obj=KModes, init='Huang', n_jobs=-1)
+        df = df.join(X[['cluster']])
+        
+        # Tal vez el usuario quiere exportar los resultados
+        if export_result: self.export_csv(df, name_suffix='cluster', index=False)
+        return df
