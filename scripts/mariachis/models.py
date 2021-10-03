@@ -10,13 +10,12 @@ from string import ascii_uppercase
 from typing import Dict, Type, Union
 from requests import get as get_req
 from IPython.display import clear_output, display
-from pandas import DataFrame, Series, read_csv, date_range, to_datetime, cut
+from pandas import DataFrame, Series, read_csv, date_range, to_datetime, cut, qcut
 
 from kmodes.kmodes import KModes
 # SKLEARN
 from sklearn.pipeline import Pipeline
 from sklearn.mixture import GaussianMixture
-from sklearn.preprocessing import OneHotEncoder
 from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
@@ -128,10 +127,11 @@ class BaseClass:
         # Concatenar el año, tanto trimestre como con el mes
         df[f'{date_col}_yearquarter'] = df[f'{date_col}_year']+' - '+df[f'{date_col}_quarter']
         df[f'{date_col}_yearmonth'] = df[f'{date_col}_year']+' - '+df[f'{date_col}_month']
+        df[date_col] = df[date_col].dt.date
         return df
 
     def clean_text(self, text: str, pattern: str="[^a-zA-Z0-9\s]", lower: bool=False) -> str: 
-        # Eliminar acentos áàäâã
+        # Eliminar acentos: áàäâã --> a
         clean = normalize('NFD', str(text).replace('\n',' \n ')).encode('ascii', 'ignore')
         clean = sub(pattern, ' ', clean.decode('utf-8'),flags=UNICODE)
         # Mantener sólo un espacio
@@ -167,6 +167,7 @@ class BaseClass:
         
         # Estructurar una tabla pivote, de donde se partirá para "recorrer" los días
         df = df.pivot_table(index=[id_col,date_col], **pivot_args, fill_value=0)
+        # Unir las posibles multi-columnas en una
         df.columns = ['_'.join([x for x in col]) if not isinstance(df.columns[0],str) else col for col in df.columns]
         
         df = df.reset_index()
@@ -216,15 +217,11 @@ class BaseClass:
 
         # Entrena y guarda el score en test
         test_score = pipe_obj.fit(X_train,y_train).score(X_test, y_test)
-        test_show = f"Score: {'{:.2%}'.format(test_score)}"
         # Guarda el score en train, para revisar sobreajuste
         train_score = pipe_obj.score(X_train,y_train)
-        train_show = f"Training score: {'{:.2%}'.format(train_score)}"
 
         # Imprime los scores
-        to_show = [test_show, train_show, "Estas son las variables más relevantes: "]
-        for x in to_show: self.cool_print(x)
-        print(to_show)
+        self.cool_print(f"Score: {'{:.2%}'.format(test_score)}\nTraining score: {'{:.2%}'.format(train_score)}\nEstas son las variables más relevantes: ")
 
         # Elige la forma de obtener las variables más representativas
         most_important_features = pipe_obj[-1].coef_ if model==LinearRegression else pipe_obj[-1].feature_importances_
@@ -269,8 +266,10 @@ class BaseClass:
 
     def profiles(self, df: DataFrame, cluster_col: str='cluster', number_format: str="{:.0f}") -> DataFrame: 
         prof = {}
-        # Obtener las variables numéricas
-        num_cols = df.sample(frac=0.01).describe().columns.tolist()
+        # Obtener el tipo de variable para cada columna
+        df_coltype = df.dtypes
+        # Guardar las variables numéricas
+        num_cols = [x for x,y in zip(df_coltype.index,df_coltype) if y!=object]
         # Promedio de cada variable numérica según el clúster
         if len(num_cols)>0: prof['numeric'] = df.pivot_table(index=cluster_col, values=num_cols)
         # Obtener las variables categóricas
@@ -279,10 +278,10 @@ class BaseClass:
         df['n'] = 1
         for col in cat_cols: 
             # Cuenta de registros para cada variable categórica según el clúster
-            prof[col] = df.pivot_table(index=col, columns=cluster_col, aggfunc={'n': sum})
+            prof[col] = df.pivot_table(index=cluster_col, columns=col, aggfunc={'n': sum})
         # Mostrar cada perfilamiento en un DataFrame con formato condicional
         for var in prof.values():
-            display(var.fillna(0).T.style.format(number_format).background_gradient('Blues'))
+            display(var.fillna(0).style.format(number_format).background_gradient('Blues'))
 
 ####################################################################################################################
 
@@ -318,7 +317,7 @@ class InterrupcionEmbarazo(BaseClass):
     def __init__(self, base_dir: str, file_name: str) -> None: 
         super().__init__(base_dir, file_name)
 
-    def wrangling_aborto(self, df: DataFrame, clean_dict: Dict, date_col: str='fingreso', export_result: bool=True, **kwargs):
+    def wrangling_ile(self, df: DataFrame, clean_dict: Dict, vars_dict: Dict, date_col: str='fingreso', export_result: bool=True, **kwargs):
         # Apartar temporalmente los registros sin fecha
         no_date = df[df[date_col].isnull()].copy()
         # Mantener sólo registros con fecha ...
@@ -338,18 +337,32 @@ class InterrupcionEmbarazo(BaseClass):
         for col in vars_num:
             df[col] = df[col].map(self.clean_number).astype(float)
         
+        # Diferencia entre la edad de la primera menstruación, edad de inicio de vida sexual activa y edad actual
+        age_vars = (vars_dict['edad_1a_menst'], vars_dict['edad_vida_sex'], vars_dict['edad_actual'])
+        age_dict = {}
+        for i, prev_age in enumerate(age_vars):
+            for j, next_age in enumerate(age_vars):
+                # Sólo comparar ascendentemente
+                if j>i:
+                    age_col = f'{next_age}_vs_{prev_age}'
+                    df[age_col] = (df[next_age]-df[prev_age]).map(lambda x: max(x,0))
+                    # Crear rangos
+                    orig_bins = qcut(df[age_col], q=4, retbins=True, duplicates='drop')[-1]
+                    age_dict[age_col] = list(orig_bins[:-1])
+
         # Función para convertir float:1.0 --> str:'01'
         def two_char(n): return str(int(n)).zfill(2)
 
         # Crear rangos de variables numéricas
-        for col, to_group in clean_dict['vars_num'].items():
+        for col, to_group in {**clean_dict['vars_num'], **age_dict}.items():
             # Encontrar el bin al cual el dato pertenece
             df[f'rango_{col}'] = cut(df[col], bins=[-1]+to_group+[1000])
             # Convertirlo a texto: [1.0 - 5.0] --> '01 a 05'
             df[f'rango_{col}'] = df[f'rango_{col}'].map(lambda x: two_char(x.left+1)+' a '+two_char(x.right) if x!=nan else nan)
-            # Corregir algunas etiquetas como: '01 a 01' --> '01' y también '03 a 1000' --> '> 02'
+            # Corregir algunas etiquetas como: '01 a 01' --> '01' y también '03 a 1000' --> '>= 03'
+            last_cut = two_char(to_group[-1]+1)
             df[[f'rango_{col}']] = df[[f'rango_{col}']].replace({
-                **{two_char(to_group[-1]+1)+' a 1000': '> '+two_char(to_group[-1])},
+                **{last_cut+' a 1000': '>= '+last_cut},
                 **{two_char(x)+' a '+two_char(x): two_char(x) for x in to_group}
             })
             # No perder de vista los valores ausentes. "La falta de información también es información"
@@ -364,7 +377,8 @@ class InterrupcionEmbarazo(BaseClass):
             clean_dict['vars_first_word']+
             list(clean_dict['vars_cat'].keys())+
             clean_dict['vars_yes_no']+
-            clean_dict['vars_just_fill_na']
+            clean_dict['vars_clean_keep']+
+            clean_dict['vars_just_clean']
         ))
 
         # Omitir acentos de variables categóricas
@@ -379,21 +393,33 @@ class InterrupcionEmbarazo(BaseClass):
         for col,to_group in clean_dict['vars_cat'].items():
             df[col] = df[col].map(to_group)
 
-        cluster_cols = vars_cat+[f'rango_{col}' for col in clean_dict['vars_num'].keys()]+clean_dict['vars_numbin']
-        
         # Lo que quedo vacío, marcar como "DESCONOCIDO"
-        for col in cluster_cols:
-            df[col] = df[col].fillna('DESCONOCIDO').astype(str)
+        df = df.fillna('DESCONOCIDO').astype(str)
 
-        # Crear una columna por clase para todas las variables, que ahora son categóricas
-        # ohe = OneHotEncoder().fit(df[cluster_cols])
-        # X = DataFrame(ohe.transform(df[cluster_cols]).toarray(), index=df.index, columns=ohe.get_feature_names_out())
+        # Comparar el método antes y después de la interrupción del embarazo
+        df['antes_vs_despues'] = ['IGUAL' if x==y else 'DIFERENTE' for x,y in zip(df[vars_dict['method_before']],df[vars_dict['method_after']])]
+        df['antes_vs_despues_detalle'] = 'antes: '+df[vars_dict['method_before']]+', después: '+df[vars_dict['method_after']]
+
+        # Tal vez el usuario quiere exportar los resultados
+        if export_result: self.export_csv(df, name_suffix='clean', index=False)
+
+        # Lista de columnas para clustering posterior
+        cluster_cols = (
+            [x for x in vars_cat if x not in clean_dict['vars_just_clean']]+
+            [f'rango_{col}' for col in clean_dict['vars_num'].keys()]+
+            clean_dict['vars_numbin']+
+            list(age_dict.keys())+
+            ['antes_vs_despues','antes_vs_despues_detalle']
+        )
+        return df, cluster_cols
+
+    def clustering_ile(self, df, cluster_cols, export_result=True):
+        # Sólo tomar las columnas de interés para clustering
         X = df[cluster_cols].copy()
-
-        # Obtener grupos 
+        # Obtener grupos por moda dado que todas las variables son categóricas
         X['cluster'], cluster_pipe = self.make_clusters(X, scaler=None, cluster_obj=KModes, init='Huang', n_jobs=-1)
         df = df.join(X[['cluster']])
-        
         # Tal vez el usuario quiere exportar los resultados
         if export_result: self.export_csv(df, name_suffix='cluster', index=False)
-        return df
+        return df, cluster_pipe
+        
