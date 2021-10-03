@@ -397,8 +397,8 @@ class InterrupcionEmbarazo(BaseClass):
         df = df.fillna('DESCONOCIDO').astype(str)
 
         # Comparar el método antes y después de la interrupción del embarazo
-        df['antes_vs_despues'] = ['IGUAL' if x==y else 'DIFERENTE' for x,y in zip(df[vars_dict['method_before']],df[vars_dict['method_after']])]
-        df['antes_vs_despues_detalle'] = 'antes: '+df[vars_dict['method_before']]+', después: '+df[vars_dict['method_after']]
+        df['antes_vs_despues'] = ['IGUAL' if x==y else 'DIFERENTE' for x,y in zip(df[vars_dict['metodo_antes']],df[vars_dict['metodo_despues']])]
+        df['antes_vs_despues_detalle'] = 'antes: '+df[vars_dict['metodo_antes']]+', después: '+df[vars_dict['metodo_despues']]
 
         # Tal vez el usuario quiere exportar los resultados
         if export_result: self.export_csv(df, name_suffix='clean', index=False)
