@@ -47,11 +47,6 @@ class BaseClass:
             sleep(sleep_time*(9 if by_word else 1))
             # Imprimir texto acumulado
             print(acum)
-        # Esperar con el texto completo
-        sleep(1.7)
-        # Borrar el texto de pantalla
-        # clear_output()
-        # return acum
     
     def __str__(self) -> str: 
         return f'Directorio: \t{self.base_dir}'
@@ -87,7 +82,8 @@ class BaseClass:
         df = read_csv(self.base_dir.joinpath(f'{self.file_name}.csv'), low_memory=False, **kwargs)
         try: 
             df = read_csv(self.base_dir.joinpath(f'{self.file_name}.csv'), low_memory=False, **kwargs)
-            self.cool_print(f'Archivo con nombre {self.file_name}.csv fue encontrado en {self.base_dir}')
+            df_shape = df.shape
+            self.cool_print(f'Archivo con nombre {self.file_name}.csv fue encontrado en {self.base_dir}\nCon {df_shape[0]} renglones y {df_shape[-1]} columnas')
             return df
         except: self.cool_print(f'No se encontró el archivo con nombre {self.file_name}.csv en {self.base_dir}\nSi el archivo csv existe, seguramente tiene un encoding y/o separador diferente a "utf-8" y "," respectivamente\nIntenta de nuevo!')
     
@@ -323,10 +319,14 @@ class InterrupcionEmbarazo(BaseClass):
         super().__init__(base_dir, file_name)
 
     def wrangling_aborto(self, df: DataFrame, clean_dict: Dict, date_col: str='fingreso', export_result: bool=True, **kwargs):
-        # Sólo registros con fecha
-        df = df[df[date_col].notnull()].reset_index()
-        # Crear variables de fecha
+        # Apartar temporalmente los registros sin fecha
+        no_date = df[df[date_col].isnull()].copy()
+        # Mantener sólo registros con fecha ...
+        df = df[df[date_col].notnull()].copy()
+        # Para crear su subconjunto de variables
         df = self.date_vars(df, date_col)
+        # Y mantener la tabla original
+        df = df.append(no_date)
 
         # Obtener las variables numéricas
         vars_num = list(set(
@@ -339,8 +339,7 @@ class InterrupcionEmbarazo(BaseClass):
             df[col] = df[col].map(self.clean_number).astype(float)
         
         # Función para convertir float:1.0 --> str:'01'
-        def two_char(n):
-            return str(int(n)).zfill(2)
+        def two_char(n): return str(int(n)).zfill(2)
 
         # Crear rangos de variables numéricas
         for col, to_group in clean_dict['vars_num'].items():
@@ -387,8 +386,9 @@ class InterrupcionEmbarazo(BaseClass):
             df[col] = df[col].fillna('DESCONOCIDO').astype(str)
 
         # Crear una columna por clase para todas las variables, que ahora son categóricas
-        ohe = OneHotEncoder().fit(df[cluster_cols])
-        X = DataFrame(ohe.transform(df[cluster_cols]).toarray(), index=df.index, columns=ohe.get_feature_names_out())
+        # ohe = OneHotEncoder().fit(df[cluster_cols])
+        # X = DataFrame(ohe.transform(df[cluster_cols]).toarray(), index=df.index, columns=ohe.get_feature_names_out())
+        X = df[cluster_cols].copy()
 
         # Obtener grupos 
         X['cluster'], cluster_pipe = self.make_clusters(X, scaler=None, cluster_obj=KModes, init='Huang', n_jobs=-1)
