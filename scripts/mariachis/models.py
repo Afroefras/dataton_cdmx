@@ -413,11 +413,11 @@ class InterrupcionEmbarazo(BaseClass):
         )
         return df, cluster_cols
 
-    def clustering_ile(self, df, cluster_cols, export_result=True):
+    def clustering_ile(self, df, cluster_cols, export_result=True, **kwargs):
         # Sólo tomar las columnas de interés para clustering
         X = df[cluster_cols].copy()
         # Obtener grupos por moda dado que todas las variables son categóricas
-        X['cluster'], cluster_pipe = self.make_clusters(X, scaler=None, cluster_obj=KModes, init='Huang', n_jobs=-1)
+        X['cluster'], cluster_pipe = self.make_clusters(X, scaler=None, cluster_obj=KModes, init='Huang', n_jobs=-1, **kwargs)
         df = df.join(X[['cluster']])
         # Tal vez el usuario quiere exportar los resultados
         if export_result: self.export_csv(df, name_suffix='cluster', index=False)
