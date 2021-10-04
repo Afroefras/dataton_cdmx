@@ -115,6 +115,16 @@ class BaseClass:
         else: df = self.get_csv(**kwargs)
         return df
 
+    def rem_nan_rows(self, df: DataFrame, thres: float=1.0):
+        to_remove = []
+        for i,row in enumerate(df.index):
+            sub_df = df.iloc[i,:].T
+            perc_nan = sub_df.isnull().mean()
+            if perc_nan >= thres: to_remove.append(row)
+        df = df.loc[~df.index.isin(to_remove),:]
+        self.cool_print(f'{len(to_remove)} renglones con {"{:.1%}".format(thres)}% o más valores nulos fueron eliminados')
+        return df
+
     def date_vars(self, df: DataFrame, date_col: str='fecha') -> DataFrame: 
         # Convertir a tipo datetime
         df[date_col] = to_datetime(df[date_col])
@@ -264,7 +274,7 @@ class BaseClass:
         df['cluster'] = df['cluster'].map(cluster_dict)
         return df['cluster'], pipe_clust
 
-    def profiles(self, df: DataFrame, cluster_col: str='cluster', number_format: str="{:.0f}") -> DataFrame: 
+    def profiles(self, df: DataFrame, cluster_col: str='cluster') -> None: 
         prof = {}
         # Obtener el tipo de variable para cada columna
         df_coltype = df.dtypes
@@ -280,8 +290,13 @@ class BaseClass:
             # Cuenta de registros para cada variable categórica según el clúster
             prof[col] = df.pivot_table(index=cluster_col, columns=col, aggfunc={'n': sum})
         # Mostrar cada perfilamiento en un DataFrame con formato condicional
-        for var in prof.values():
-            display(var.fillna(0).style.format(number_format).background_gradient('Blues'))
+        for x in prof.values():
+            x = x.fillna(0)
+            by_clust = x.copy()
+            by_var = x.T.copy()
+            perc = x/x.sum().sum()
+            for summary, to_format, to_axis in zip([by_clust, by_var, perc],["{:.0f}","{:.0f}","{:.1%}"],[0,0,None]):
+                display(summary.style.format(to_format).background_gradient('Blues', axis=to_axis))
 
 ####################################################################################################################
 
@@ -318,6 +333,8 @@ class InterrupcionEmbarazo(BaseClass):
         super().__init__(base_dir, file_name)
 
     def wrangling_ile(self, df: DataFrame, clean_dict: Dict, vars_dict: Dict, date_col: str='fingreso', export_result: bool=True, **kwargs):
+        # Omitir renglones con todas las variables vacías
+        df = self.rem_nan_rows(df, thres=1)
         # Apartar temporalmente los registros sin fecha
         no_date = df[df[date_col].isnull()].copy()
         # Mantener sólo registros con fecha ...
@@ -411,7 +428,7 @@ class InterrupcionEmbarazo(BaseClass):
             list(age_dict.keys())+
             ['antes_vs_despues','antes_vs_despues_detalle']
         )
-        return df, cluster_cols
+        return df, sorted(cluster_cols)
 
     def clustering_ile(self, df, cluster_cols, export_result=True, **kwargs):
         # Sólo tomar las columnas de interés para clustering
