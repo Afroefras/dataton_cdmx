@@ -1,32 +1,29 @@
-
-import cufflinks as cf
+# Control de datos
 from time import sleep
+from typing import Dict
 from pathlib import Path
-from re import sub, UNICODE
-from numpy import nan, array
-from datetime import datetime
-from unicodedata import normalize
-from string import ascii_uppercase
-from typing import Dict, Type, Union
 from requests import get as get_req
 from IPython.display import clear_output, display
-from pandas import DataFrame, Series, read_csv, date_range, to_datetime, cut, qcut
 
-# SKLEARN
+# Ingeniería de variables
+from numpy import nan
+from re import sub, UNICODE
+from unicodedata import normalize
+from string import ascii_uppercase
+from pandas import DataFrame, read_csv, to_datetime
+
+# Modelos
 from sklearn.pipeline import Pipeline
 from sklearn.mixture import GaussianMixture
-from sklearn.linear_model import LinearRegression
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import MinMaxScaler, StandardScaler, RobustScaler
-
-cf.go_offline()
+from sklearn.preprocessing import RobustScaler
 
 class BaseClass: 
-    
+    '''
+    Clase con métodos en común para diferentes clases "hijas"
+    '''
     def __init__(self, base_dir: str, file_name:str) -> None: 
         '''
-        Obtener un directorio como texto y convertirlo a tipo Path
+        Obtener un directorio como texto y convertirlo a tipo Path para unir directorios, buscar archivos, etc.
         '''
         self.base_dir = Path(base_dir)
         self.file_name = file_name
@@ -115,16 +112,27 @@ class BaseClass:
         return df
 
     def rem_nan_rows(self, df: DataFrame, thres: float=1.0):
+        '''
+        Omitir registros mayor o igual al porcentaje "thres" de valores nulos
+        '''
         to_remove = []
         for i,row in enumerate(df.index):
+            # Revisar por renglón
             sub_df = df.iloc[i,:].T
+            # Obtener el porcentaje de nulos
             perc_nan = sub_df.isnull().mean()
+            # Si dicho porcentaje es mayor, guardar en una lista
             if perc_nan >= thres: to_remove.append(row)
+        # Omitir los registros de la lista con el porcentaje de valores nulos más grande que el parámetro "thres"
         df = df.loc[~df.index.isin(to_remove),:]
+        # Informar cuántos renglones fueron omitidos
         self.cool_print(f'{len(to_remove)} renglones con {"{:.1%}".format(thres)}% o más valores nulos fueron eliminados')
         return df
 
     def date_vars(self, df: DataFrame, date_col: str='fecha') -> DataFrame: 
+        '''
+        Crear las columnas de divisiones de fechas
+        '''
         # Convertir a tipo datetime
         df[date_col] = to_datetime(df[date_col])
         # Para extraer la división de año
@@ -140,6 +148,9 @@ class BaseClass:
         return df
 
     def clean_text(self, text: str, pattern: str="[^a-zA-Z0-9\s]", lower: bool=False) -> str: 
+        '''
+        Limpieza de texto
+        '''
         # Eliminar acentos: áàäâã --> a
         clean = normalize('NFD', str(text).replace('\n',' \n ')).encode('ascii', 'ignore')
         clean = sub(pattern, ' ', clean.decode('utf-8'),flags=UNICODE)
@@ -152,116 +163,19 @@ class BaseClass:
         return clean
 
     def clean_number(self, text: str) -> str: 
+        '''
+        Limpieza numérica
+        '''
         # Omitir todo lo que no sea número o "."
         clean = sub('[^0-9\.]', '', str(text))
         # Si el registro estaba vacío, indicar nulo
         if clean in ('','nan'): clean = nan
         return clean
 
-    def multishift(self, df: DataFrame, id_cols: list, date_col: str='fecha', shifts: Union[list,tuple,range]=range(1,22), **pivot_args): 
+    def make_clusters(self, df: DataFrame, n_clusters: int=5, cols: list=None, scaler=RobustScaler, cluster_obj=GaussianMixture, **kwargs) -> tuple: 
         '''
-        Escalona los valores para crear una Tabla Analítica de Datos con formato: valor hoy, valor 1 día antes, dos días antes, etc
+        Recibe un DataFrame y lo devuelve con una columna adicional indicando el cluster asignado, además del objeto para predecir en nuevos datos
         '''
-        df[date_col] = df[date_col].map(to_datetime).dt.date
-
-        # Sólo una columna que servirá como ID
-        id_col = ','.join(id_cols)
-        df[id_col] = df[id_cols].apply(lambda x: ','.join(x.dropna().astype(str)),axis=1)
-
-        # Omitir aquellos IDs con menor frequencia que el máximo valor de "shifts", porque inevitablemente tendrán shift vacíos
-        freq = df[id_col].value_counts().to_frame()
-        omit_idx = freq[freq[id_col]<=max(shifts)].index.to_list()
-        if len(omit_idx)>0: 
-            df = df[~df[id_col].isin(omit_idx)].copy()
-        
-        # Estructurar una tabla pivote, de donde se partirá para "recorrer" los días
-        df = df.pivot_table(index=[id_col,date_col], **pivot_args, fill_value=0)
-        # Unir las posibles multi-columnas en una
-        df.columns = ['_'.join([x for x in col]) if not isinstance(df.columns[0],str) else col for col in df.columns]
-        
-        df = df.reset_index()
-        total = DataFrame()
-        for row in set(df[id_col]): 
-            # Para cada grupo de renglones por ID
-            df_id = df.set_index(id_col).loc[row,: ]
-            # Asegurar todas las fechas
-            tot_dates = DataFrame(date_range(start=df_id[date_col].min(), end=df_id[date_col].max()).date, columns=[date_col])
-            df_id = df_id.merge(tot_dates, on=date_col, how='right').fillna(0)
-            cols = df_id.columns[1: ]
-            # Comenzar el "escalonado" de la tabla pivote inicial
-            aux = df_id.copy()
-            for i in shifts: 
-                aux = aux.join(df_id.iloc[: ,1: ].shift(i).rename(columns={x: f'{x}_{str(i).zfill(2)}' for x in cols}))
-            aux[id_col] = row
-            total = total.append(aux,ignore_index=True)
-        return total.set_index(id_cols+[date_col], inplace=True)
-
-    def apply_multishift(self, df: DataFrame, export_shifted: bool=True, **kwargs) -> tuple: 
-        # Aplicar la función "multishift" con los parámetros personalizados
-        df = self.multishift(df, **kwargs)
-        df.dropna(inplace=True)
-        df = df[sorted(df.columns)].copy()
-
-        # Tal vez el usuario quiere exportar los resultados
-        if export_shifted: self.export_csv(df, name_suffix='shifted')
-
-        # Obtener la lista de las columnas de todos los días previos
-        prev = df.head(1).filter(regex='_\d+').columns.tolist()
-        actual = [x for x in df.columns if x not in prev]
-
-        # Seleccionar los datos para construir f(X)=y
-        X = df[prev].copy()
-        y = df[actual].sum(axis=1).values
-        return X, y
-
-    def train_reg_model(self, X: Union[DataFrame,array], y: array, scaler: Type[Union[MinMaxScaler, StandardScaler, RobustScaler]]=RobustScaler, model: Type[Union[LinearRegression, RandomForestRegressor]]=LinearRegression): 
-        '''
-        Escala y entrena un modelo, devuelve el score, el objeto tipo Pipeline y la relevancia de cada variable
-        '''
-        # Conjunto de entrenamiento y de test
-        X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.77, random_state=22, shuffle=True)
-
-        # Define los pasos del flujo
-        pipe_obj = Pipeline(steps=[('prep', scaler()), ('model', model(n_jobs=-1))])
-
-        # Entrena y guarda el score en test
-        test_score = pipe_obj.fit(X_train,y_train).score(X_test, y_test)
-        # Guarda el score en train, para revisar sobreajuste
-        train_score = pipe_obj.score(X_train,y_train)
-
-        # Imprime los scores
-        self.cool_print(f"Score: {'{:.2%}'.format(test_score)}\nTraining score: {'{:.2%}'.format(train_score)}\nEstas son las variables más relevantes: ")
-
-        # Elige la forma de obtener las variables más representativas
-        most_important_features = pipe_obj[-1].coef_ if model==LinearRegression else pipe_obj[-1].feature_importances_
-        # Las ordena descendentemente
-        coef_var = DataFrame(zip(X.columns, most_important_features)).sort_values(1, ascending=False).reset_index(drop=True)
-        return pipe_obj, coef_var
-
-    def real_vs_est(self, X: DataFrame, y: array, model: Type[Union[LinearRegression, RandomForestRegressor]]) -> DataFrame: 
-        # De todo el conjunto de datos...
-        df = X.join(DataFrame(y, index=X.index, columns=['real']))
-        # Predice el el valor...
-        df['est'] = model.predict(X)
-        # Y devuelve sólo las columna real y la estimada
-        return df[['real','est']]
-
-    def plot_real_vs_est(self, X: DataFrame, y: array, model: Type[Union[LinearRegression, RandomForestRegressor]], id_col: str, date_col='fecha', from_year: int=1900, to_year: int=datetime.now().year): 
-        # Obtener real vs estimado
-        pred = self.real_vs_est(X, y, model).reset_index()
-
-        # Filtrar sólo años de interés
-        pred['year'] = to_datetime(pred[date_col]).dt.year
-        df = pred[(pred['year']>=from_year)&(pred['year']<=to_year)].copy()
-        df.drop(columns='year', inplace=True)
-
-        # Mostrar comportamiento real vs estimado
-        df.set_index(id_col, inplace=True)
-        for x in set(df.index): 
-            df_id = df.loc[x,: ].reset_index(drop=True).set_index(date_col)
-            df_id.iplot(title=x)
-
-    def make_clusters(self, df: DataFrame, n_clusters: int=5, cols: list=None, scaler=RobustScaler, cluster_obj=GaussianMixture, **kwargs) -> tuple([Series,Pipeline]): 
         cluster_cols = cols if cols!=None else df.columns
         # Primero escalar, después agrupar
         if scaler==None: pipe_clust = cluster_obj(n_clusters, random_state=22, **kwargs)
@@ -274,6 +188,9 @@ class BaseClass:
         return df['cluster'], pipe_clust
 
     def profiles(self, df: DataFrame, cluster_col: str='cluster') -> None: 
+        '''
+        Recibe el resultado del método anterior para mostrar la diferencia numérica y categórica de cada clúster para todas las variables
+        '''
         prof = {}
         # Obtener el tipo de variable para cada columna
         df_coltype = df.dtypes
@@ -297,34 +214,4 @@ class BaseClass:
             for summary, to_format, to_axis in zip([by_clust, by_var, perc],["{:.0f}","{:.0f}","{:.1%}"],[0,0,None]):
                 display(summary.style.format(to_format).background_gradient('Blues', axis=to_axis))
 
-####################################################################################################################
-
-class IngresoMetro(BaseClass): 
-    def __init__(self, base_dir: str, file_name: str) -> None:
-        super().__init__(base_dir, file_name)
-
-    def wrangling_ingreso(self, df: DataFrame, date_col: str='fecha', add_cols: list=['tipo_ingreso'], **kwargs): 
-        df.drop(['id','_id'], axis=1, inplace=True)
-        # Las líneas del metro son columnas, crear sólo una columna indicando a qué línea se refiere
-        df = df.melt(id_vars=[date_col]+add_cols, var_name='linea', value_name='ingreso')
-        # Obtener f(X)=y "escalonando" los valores de días previos
-        X, y = self.apply_multishift(df, **kwargs)
-        return X,y
-
-####################################################################################################################
-
-class AfluenciaTransporte(BaseClass): 
-    def __init__(self, base_dir: str, file_name: str) -> None: 
-        super().__init__(base_dir, file_name)
-
-    def wrangling_afluencia(self, df: DataFrame, value_col='afluencia_total_preliminar', **kwargs): 
-        df.drop(['id','_id'], axis=1, inplace=True)
-        # Eliminar "," que convierten el valor a texto
-        df[value_col] = df[value_col].map(str).str.replace(',', '')
-        df[[value_col]] = df[[value_col]].replace({'': 0}).astype(int)
-        # Obtener f(X)=y "escalonando" los valores de días previos
-        X, y = self.apply_multishift(df, **kwargs)
-        return X,y
-        
-####################################################################################################################
 

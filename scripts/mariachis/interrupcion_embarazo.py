@@ -1,15 +1,25 @@
+# Herencia de atributos y métodos
 from .base import BaseClass
 
+# Ingeniería de variables
 from numpy import nan
 from typing import Dict
-from kmodes.kmodes import KModes
 from pandas import DataFrame, cut, qcut
+
+# Modelos
+from kmodes.kmodes import KModes
 
 class InterrupcionEmbarazo(BaseClass):
     def __init__(self, base_dir: str, file_name: str) -> None: 
+        '''
+        Hereda los atributos y métodos de la clase base
+        '''
         super().__init__(base_dir, file_name)
 
-    def wrangling_ile(self, df: DataFrame, clean_dict: Dict, vars_dict: Dict, date_col: str='fingreso', export_result: bool=True, **kwargs):
+    def wrangling_ile(self, df: DataFrame, clean_dict: Dict, vars_dict: Dict, date_col: str='fingreso', export_result: bool=True, **kwargs) -> tuple:
+        '''
+        Recibe un DataFrame y ejecuta la limpieza e ingeniería de variables según los diccionarios "clean_dict" y "vars_dict" proporcionados
+        '''
         # Omitir renglones con todas las variables vacías
         df = self.rem_nan_rows(df, thres=1)
         # Apartar temporalmente los registros sin fecha
@@ -107,7 +117,10 @@ class InterrupcionEmbarazo(BaseClass):
         )
         return df, sorted(cluster_cols)
 
-    def clustering_ile(self, df, cluster_cols, export_result=True, **kwargs):
+    def clustering_ile(self, df: DataFrame, cluster_cols: list, export_result: bool=True, **kwargs) -> tuple:
+        '''
+        Crear grupos con los datos de ILE
+        '''
         # Sólo tomar las columnas de interés para clustering
         X = df[cluster_cols].copy()
         # Obtener grupos por moda dado que todas las variables son categóricas
