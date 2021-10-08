@@ -28,6 +28,9 @@ class BaseClass:
         self.base_dir = Path(base_dir)
         self.file_name = file_name
 
+    def __str__(self) -> str: 
+        return f'Directorio: \t{self.base_dir}'
+
     def cool_print(self, text: str, sleep_time: float=0.03, by_word: bool=False) -> None: 
         '''
         Imprimir como si se fuera escribiendo
@@ -42,9 +45,7 @@ class BaseClass:
             sleep(sleep_time*(9 if by_word else 1))
             # Imprimir texto acumulado
             print(acum)
-    
-    def __str__(self) -> str: 
-        return f'Directorio: \t{self.base_dir}'
+        sleep(1.7)
     
     def __len__(self) -> str: 
         '''

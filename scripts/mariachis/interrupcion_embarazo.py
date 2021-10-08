@@ -105,7 +105,7 @@ class InterrupcionEmbarazo(BaseClass):
         df['antes_vs_despues_detalle'] = 'antes: '+df[vars_dict['metodo_antes']]+', después: '+df[vars_dict['metodo_despues']]
 
         # Tal vez el usuario quiere exportar los resultados
-        if export_result: self.export_csv(df, name_suffix='clean', index=False)
+        if export_result: self.export_csv(df, name_suffix='limpio', index=False)
 
         # Lista de columnas para clustering posterior
         cluster_cols = (
@@ -127,6 +127,6 @@ class InterrupcionEmbarazo(BaseClass):
         X['cluster'], cluster_pipe = self.make_clusters(X, scaler=None, cluster_obj=KModes, init='Huang', n_jobs=-1, **kwargs)
         df = df.join(X[['cluster']])
         # Tal vez el usuario quiere exportar los resultados
-        if export_result: self.export_csv(df, name_suffix='cluster', index=False)
+        if export_result: self.export_csv(df, name_suffix='clusters', index=False)
         return df, cluster_pipe
         
