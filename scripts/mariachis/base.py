@@ -8,11 +8,9 @@ from IPython.display import clear_output, display
 # Ingeniería de variables
 from numpy import nan
 from re import sub, UNICODE
-from geopandas import GeoDataFrame
 from unicodedata import normalize
 from string import ascii_uppercase
 from difflib import get_close_matches
-from shapely.geometry import Point, Polygon
 from pandas import DataFrame, read_csv, to_datetime
 
 # Modelos
@@ -34,7 +32,7 @@ class BaseClass:
     def __str__(self) -> str: 
         return f'Directorio: \t{self.base_dir}'
 
-    def cool_print(self, text: str, sleep_time: float=0.03, by_word: bool=False) -> None: 
+    def cool_print(self, text: str, sleep_time: float=0.0, by_word: bool=False) -> None: 
         '''
         Imprimir como si se fuera escribiendo
         '''
@@ -133,6 +131,16 @@ class BaseClass:
         self.cool_print(f'{len(to_remove)} renglones con {"{:.1%}".format(thres)}% o más de valores nulos fueron eliminados')
         return df
 
+    def clean_number(self, text: str) -> str: 
+        '''
+        Limpieza numérica
+        '''
+        # Omitir todo lo que no sea número o "."
+        clean = sub('[^0-9\.]', '', str(text))
+        # Si el registro estaba vacío, indicar nulo
+        if clean in ('','nan'): clean = nan
+        return clean
+
     def clean_text(self, text: str, pattern: str="[^a-zA-Z0-9\s]", lower: bool=False) -> str: 
         '''
         Limpieza de texto
@@ -155,7 +163,7 @@ class BaseClass:
         elige la opción que más se parezca a alguna de las posibilidades
         '''
         # Aplicar limpieza de texto a la lista de posibilidades
-        correct_clean = map(lambda x: self.clean_text(x, lower=True), correct_list)
+        correct_clean = list(map(lambda x: self.clean_text(x, lower=True), correct_list))
         # Hacer un diccionario de posibilidades limpias y las originales recibidas
         correct_dict = dict(zip(correct_clean, correct_list))
         # Aplicar la limpieza a la columna especificada
@@ -165,19 +173,8 @@ class BaseClass:
         # Si existen parecidas, traer la primera opción que es la más parecida
         df[f'{col}_correct'] = df[f'{col}_correct'].map(lambda x: x[0] if len(x)>0 else nan)
         # Regresar del texto limpio a la posibilidad original, lo no encontrado se llena con "fill_value"
-        if 1==1: return df
         df[f'{col}_correct'] = df[f'{col}_correct'].map(correct_dict).fillna(fill_value)
         return df
-
-    def clean_number(self, text: str) -> str: 
-        '''
-        Limpieza numérica
-        '''
-        # Omitir todo lo que no sea número o "."
-        clean = sub('[^0-9\.]', '', str(text))
-        # Si el registro estaba vacío, indicar nulo
-        if clean in ('','nan'): clean = nan
-        return clean
 
     def date_vars(self, df: DataFrame, date_col: str='fecha') -> DataFrame: 
         '''
@@ -196,29 +193,6 @@ class BaseClass:
         df[f'{date_col}_yearmonth'] = df[f'{date_col}_year']+' - '+df[f'{date_col}_month']
         # Mantener sólo la fecha
         df[date_col] = df[date_col].dt.date
-        return df
-
-    def to_geodf(self, df: DataFrame, geo_col: str='geo_shape', step: int=10) -> GeoDataFrame:
-        '''
-        Recibe un DataFrame con una columna que, dentro de un diccionario contiene los puntos que
-        delimitan el polígono de la localidad, devuelve un GeoDataFrame con métricas de geolocalización importantes
-        '''
-        # Obtener lista de coordenadas para cada registro
-        df['geometry'] = df[geo_col].map(lambda x: eval(x)['coordinates'][0])
-        # Cada coordenada se convierte a tipo Point
-        df['geometry'] = df['geometry'].map(lambda x: [Point(tuple(y)) for y in x[::step]])
-        # Para generar el polígono que delimita a la localidad
-        df['geometry'] = df['geometry'].map(Polygon)
-        # Convertir a DataFrame
-        df = GeoDataFrame(df, geometry='geometry')
-        # Para obtener su área,
-        df['area'] = df.area
-        # Límites,
-        df['boundary'] = df.boundary
-        # Punto central,
-        df['centroid'] = df.centroid
-        # Y el polígono que la contiene
-        df['convex_hull'] = df.convex_hull
         return df
 
     def make_clusters(self, df: DataFrame, n_clusters: int=5, cols: list=None, scaler=RobustScaler, cluster_obj=GaussianMixture, **kwargs) -> tuple: 
