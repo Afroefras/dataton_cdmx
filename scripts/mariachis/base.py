@@ -8,8 +8,11 @@ from IPython.display import clear_output, display
 # Ingeniería de variables
 from numpy import nan
 from re import sub, UNICODE
+from geopandas import GeoDataFrame
 from unicodedata import normalize
 from string import ascii_uppercase
+from difflib import get_close_matches
+from shapely.geometry import Point, Polygon
 from pandas import DataFrame, read_csv, to_datetime
 
 # Modelos
@@ -127,8 +130,54 @@ class BaseClass:
         # Omitir los registros de la lista con el porcentaje de valores nulos más grande que el parámetro "thres"
         df = df.loc[~df.index.isin(to_remove),:]
         # Informar cuántos renglones fueron omitidos
-        self.cool_print(f'{len(to_remove)} renglones con {"{:.1%}".format(thres)}% o más valores nulos fueron eliminados')
+        self.cool_print(f'{len(to_remove)} renglones con {"{:.1%}".format(thres)}% o más de valores nulos fueron eliminados')
         return df
+
+    def clean_text(self, text: str, pattern: str="[^a-zA-Z0-9\s]", lower: bool=False) -> str: 
+        '''
+        Limpieza de texto
+        '''
+        # Reemplazar acentos: áàäâã --> a
+        clean = normalize('NFD', str(text).replace('\n', ' \n ')).encode('ascii', 'ignore')
+        # Omitir caracteres especiales !"#$%&/()=...
+        clean = sub(pattern, ' ', clean.decode('utf-8'), flags=UNICODE)
+        # Mantener sólo un espacio
+        clean = sub(r'\s{2,}', ' ', clean.strip())
+        # Minúsculas si el parámetro lo indica
+        if lower: clean = clean.lower()
+        # Si el registro estaba vacío, indicar nulo
+        if clean in ('','nan'): clean = nan
+        return clean
+
+    def choose_correct(self, df: DataFrame, col: str, correct_list: list, fill_value: str='DESCONOCIDO', **kwargs) -> DataFrame:
+        '''
+        Recibe un DataFrame y una lista de posibilidades, especificando la columna a revisar
+        elige la opción que más se parezca a alguna de las posibilidades
+        '''
+        # Aplicar limpieza de texto a la lista de posibilidades
+        correct_clean = map(lambda x: self.clean_text(x, lower=True), correct_list)
+        # Hacer un diccionario de posibilidades limpias y las originales recibidas
+        correct_dict = dict(zip(correct_clean, correct_list))
+        # Aplicar la limpieza a la columna especificada
+        df[f'{col}_correct'] = df[col].map(lambda x: self.clean_text(x,lower=True))
+        # Encontrar las posibilidades más parecidas
+        df[f'{col}_correct'] = df[f'{col}_correct'].map(lambda x: get_close_matches(x, correct_clean, **kwargs))
+        # Si existen parecidas, traer la primera opción que es la más parecida
+        df[f'{col}_correct'] = df[f'{col}_correct'].map(lambda x: x[0] if len(x)>0 else nan)
+        # Regresar del texto limpio a la posibilidad original, lo no encontrado se llena con "fill_value"
+        if 1==1: return df
+        df[f'{col}_correct'] = df[f'{col}_correct'].map(correct_dict).fillna(fill_value)
+        return df
+
+    def clean_number(self, text: str) -> str: 
+        '''
+        Limpieza numérica
+        '''
+        # Omitir todo lo que no sea número o "."
+        clean = sub('[^0-9\.]', '', str(text))
+        # Si el registro estaba vacío, indicar nulo
+        if clean in ('','nan'): clean = nan
+        return clean
 
     def date_vars(self, df: DataFrame, date_col: str='fecha') -> DataFrame: 
         '''
@@ -145,33 +194,32 @@ class BaseClass:
         # Concatenar el año, tanto trimestre como con el mes
         df[f'{date_col}_yearquarter'] = df[f'{date_col}_year']+' - '+df[f'{date_col}_quarter']
         df[f'{date_col}_yearmonth'] = df[f'{date_col}_year']+' - '+df[f'{date_col}_month']
+        # Mantener sólo la fecha
         df[date_col] = df[date_col].dt.date
         return df
 
-    def clean_text(self, text: str, pattern: str="[^a-zA-Z0-9\s]", lower: bool=False) -> str: 
+    def to_geodf(self, df: DataFrame, geo_col: str='geo_shape', step: int=10) -> GeoDataFrame:
         '''
-        Limpieza de texto
+        Recibe un DataFrame con una columna que, dentro de un diccionario contiene los puntos que
+        delimitan el polígono de la localidad, devuelve un GeoDataFrame con métricas de geolocalización importantes
         '''
-        # Eliminar acentos: áàäâã --> a
-        clean = normalize('NFD', str(text).replace('\n',' \n ')).encode('ascii', 'ignore')
-        clean = sub(pattern, ' ', clean.decode('utf-8'),flags=UNICODE)
-        # Mantener sólo un espacio
-        clean = sub(r'\s{2,}', ' ', clean)
-        # Minúsculas si el parámetro lo indica
-        if lower: clean = clean.lower()
-        # Si el registro estaba vacío, indicar nulo
-        if clean in ('','nan'): clean = nan
-        return clean
-
-    def clean_number(self, text: str) -> str: 
-        '''
-        Limpieza numérica
-        '''
-        # Omitir todo lo que no sea número o "."
-        clean = sub('[^0-9\.]', '', str(text))
-        # Si el registro estaba vacío, indicar nulo
-        if clean in ('','nan'): clean = nan
-        return clean
+        # Obtener lista de coordenadas para cada registro
+        df['geometry'] = df[geo_col].map(lambda x: eval(x)['coordinates'][0])
+        # Cada coordenada se convierte a tipo Point
+        df['geometry'] = df['geometry'].map(lambda x: [Point(tuple(y)) for y in x[::step]])
+        # Para generar el polígono que delimita a la localidad
+        df['geometry'] = df['geometry'].map(Polygon)
+        # Convertir a DataFrame
+        df = GeoDataFrame(df, geometry='geometry')
+        # Para obtener su área,
+        df['area'] = df.area
+        # Límites,
+        df['boundary'] = df.boundary
+        # Punto central,
+        df['centroid'] = df.centroid
+        # Y el polígono que la contiene
+        df['convex_hull'] = df.convex_hull
+        return df
 
     def make_clusters(self, df: DataFrame, n_clusters: int=5, cols: list=None, scaler=RobustScaler, cluster_obj=GaussianMixture, **kwargs) -> tuple: 
         '''
@@ -184,7 +232,8 @@ class BaseClass:
         # Nueva columna definiendo el clúster
         df['cluster'] = pipe_clust.fit_predict(df[cluster_cols])
         # Diccionario para reemplazar A: 1, B: 2, etc
-        cluster_dict = dict(zip(range(n_clusters), ascii_uppercase[: n_clusters]))
+        cluster_dict = dict(zip(range(n_clusters), ascii_uppercase[:n_clusters]))
+        # Aplicar diccionario
         df['cluster'] = df['cluster'].map(cluster_dict)
         return df['cluster'], pipe_clust
 

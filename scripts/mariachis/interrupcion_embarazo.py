@@ -126,7 +126,5 @@ class InterrupcionEmbarazo(BaseClass):
         # Obtener grupos por moda dado que todas las variables son categóricas
         X['cluster'], cluster_pipe = self.make_clusters(X, scaler=None, cluster_obj=KModes, init='Huang', n_jobs=-1, **kwargs)
         df = df.join(X[['cluster']])
-        # Tal vez el usuario quiere exportar los resultados
-        if export_result: self.export_csv(df, name_suffix='clusters', index=False)
         return df, cluster_pipe
         
