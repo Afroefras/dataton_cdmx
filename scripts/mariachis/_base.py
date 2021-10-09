@@ -11,6 +11,7 @@ from re import sub, UNICODE
 from unicodedata import normalize
 from string import ascii_uppercase
 from difflib import get_close_matches
+from geopandas import GeoDataFrame, GeoSeries, points_from_xy
 from pandas import DataFrame, read_csv, to_datetime, options
 options.mode.chained_assignment = None
 
@@ -172,7 +173,7 @@ class BaseClass:
         # Encontrar las posibilidades más parecidas
         df[f'{col}_correct'] = df[f'{col}_correct'].map(lambda x: get_close_matches(x, correct_clean, **kwargs))
         # Si existen parecidas, traer la primera opción que es la más parecida
-        df[f'{col}_correct'] = df[f'{col}_correct'].map(lambda x: x[0] if len(x)>0 else nan)
+        df[f'{col}_correct'] = df[f'{col}_correct'].map(lambda x: x[0] if isinstance(x,list) else nan)
         # Regresar del texto limpio a la posibilidad original, lo no encontrado se llena con "fill_value"
         df[f'{col}_correct'] = df[f'{col}_correct'].map(correct_dict).fillna(fill_value)
         return df
@@ -238,4 +239,43 @@ class BaseClass:
             perc = x/x.sum().sum()
             for summary, to_format, to_axis in zip([by_clust, by_var, perc],["{:.0f}","{:.0f}","{:.1%}"],[0,0,None]):
                 display(summary.style.format(to_format).background_gradient('Blues', axis=to_axis))
+
+    def geo_polygon(self, df: DataFrame, crs_code: str='EPSG:6372', just_geodf: bool=False, geom_col: str=None, coord_cols: tuple=('lat','lon'), group_by: str=None) -> DataFrame:
+        '''
+        Crea el polígono desde un DataFrame ya sea con una columna de "geometry" o dos columnas: latitud y otra de longitud,
+        puede devolver sólo la transformación o agrupar a un nivel de geolocalización mayor
+        '''
+        # Omitir los registros nulos del nivel de geolocalización al que se va a agrupar
+        if group_by != None: df = df[df[group_by].fillna('').astype(str).str.len()>0].copy()
+        else: pass
+        # Establecer la columna de geolocalización, ya sean las coordenadas o la columna de polígono
+        geom = points_from_xy(df[coord_cols[-1]], df[coord_cols[0]]) if geom_col==None else geom_col
+        # Crear GeoDataFrame
+        gdf = GeoDataFrame(df, crs=crs_code, geometry=geom)
+        # Función auxiliar para extraer el formato que <kepler.gl> puede leer correctamente
+        def extract_geoshape(x):
+            return GeoSeries([x]).__geo_interface__['features'][0]['geometry']
+        # Aplicar dicha función a geometry para crear la nueva columna
+        gdf['geo_shape'] = df['geometry'].map(extract_geoshape)
+        # Si sólo se desea la transformación
+        if just_geodf: return gdf
+        # O si se desdea agrupar a un nivel de geolocalización superior
+        df = gdf.dissolve(by=group_by)
+        # Asegurarse de tener un polígono, porque probablemente el nivel de agregación resulta en una o dos coordenadas
+        df['geometry'] = df['geometry'].buffer(0.05)
+        # El nivel de agregación queda como índice, pasar a columna
+        df.reset_index(inplace=True)
+        return df
     
+    def geo_metrics(self, df: GeoDataFrame, metrics: list=['area','boundary','centroid','convex_hull']) -> GeoDataFrame:
+        '''
+        Obtiene las métricas más importantes de geolocalización
+        '''
+        # Obtener su área, límite, punto central y el polígono que contiene a cada localidad
+        for metric in metrics:
+            df[metric] = eval(f'df.{metric}')
+        # Obtener coordenadas del centroide
+        coor = df['centroid'].map(lambda x: list(x.coords)[0])
+        # Establecer una columna para la latitud y otra de longitud
+        df[['centroid_lat', 'centroid_lon']] = DataFrame(coor.tolist(), index=df.index)
+        return df
