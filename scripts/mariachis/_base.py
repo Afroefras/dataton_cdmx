@@ -173,7 +173,7 @@ class BaseClass:
         # Encontrar las posibilidades más parecidas
         df[f'{col}_correct'] = df[f'{col}_correct'].map(lambda x: get_close_matches(x, correct_clean, **kwargs))
         # Si existen parecidas, traer la primera opción que es la más parecida
-        df[f'{col}_correct'] = df[f'{col}_correct'].map(lambda x: x[0] if isinstance(x,list) else nan)
+        df[f'{col}_correct'] = df[f'{col}_correct'].map(lambda x: x[0] if isinstance(x,list) and len(x)>0 else nan)
         # Regresar del texto limpio a la posibilidad original, lo no encontrado se llena con "fill_value"
         df[f'{col}_correct'] = df[f'{col}_correct'].map(correct_dict).fillna(fill_value)
         return df
@@ -240,7 +240,7 @@ class BaseClass:
             for summary, to_format, to_axis in zip([by_clust, by_var, perc],["{:.0f}","{:.0f}","{:.1%}"],[0,0,None]):
                 display(summary.style.format(to_format).background_gradient('Blues', axis=to_axis))
 
-    def geo_polygon(self, df: DataFrame, crs_code: str='EPSG:6372', just_geodf: bool=False, geom_col: str=None, coord_cols: tuple=('lat','lon'), group_by: str=None) -> DataFrame:
+    def geo_polygon(self, df: DataFrame, crs_code: str='EPSG:6372', just_geodf: bool=False, geom_col: str=None, coord_cols: tuple=('lat','lon'), group_by: str=None, create_geoshape: bool=False) -> DataFrame:
         '''
         Crea el polígono desde un DataFrame ya sea con una columna de "geometry" o dos columnas: latitud y otra de longitud,
         puede devolver sólo la transformación o agrupar a un nivel de geolocalización mayor
@@ -252,11 +252,11 @@ class BaseClass:
         geom = points_from_xy(df[coord_cols[-1]], df[coord_cols[0]]) if geom_col==None else geom_col
         # Crear GeoDataFrame
         gdf = GeoDataFrame(df, crs=crs_code, geometry=geom)
-        # Función auxiliar para extraer el formato que <kepler.gl> puede leer correctamente
-        def extract_geoshape(x):
-            return GeoSeries([x]).__geo_interface__['features'][0]['geometry']
-        # Aplicar dicha función a geometry para crear la nueva columna
-        gdf['geo_shape'] = df['geometry'].map(extract_geoshape)
+        if create_geoshape: 
+            # Función auxiliar para extraer el formato que <kepler.gl> puede leer correctamente
+            def extract_geoshape(x): return GeoSeries([x]).__geo_interface__['features'][0]['geometry']
+            # Aplicar dicha función a geometry para crear la nueva columna
+            gdf['geo_shape'] = df['geometry'].map(extract_geoshape)
         # Si sólo se desea la transformación
         if just_geodf: return gdf
         # O si se desdea agrupar a un nivel de geolocalización superior

@@ -1,8 +1,10 @@
 # Herencia de atributos y métodos
+import typing
 from ._base import BaseClass
 
 # Control de datos
 from io import BytesIO
+from typing import Dict
 from zipfile import ZipFile
 from requests import get as get_req
 
@@ -32,7 +34,7 @@ class GeoLoc(BaseClass):
             'accuracy',
         ]
 
-    def get_data(self, decode_to: str='utf-8') -> DataFrame:
+    def get_data(self, decode_to: str='utf-8', replace_dict: Dict={'México':'Estado de México','Distrito Federal':'Ciudad de México'}) -> DataFrame:
         # Obtiene la información del request
         req_data = get_req(self.zip_url).content
         # Optimizando memoria, obtiene los datos del zip
@@ -46,18 +48,29 @@ class GeoLoc(BaseClass):
         # Estructurarlo en un DataFrame para manipulación posterior
         df = DataFrame(map(lambda x: x.replace('\n','').split('\t'),data), columns=self.cols)
         self.cool_print(f'Códigos postales de {self.country} importados desde {self.zip_url}')
+        df = df.replace(replace_dict)
         # Exporta los resultados en formato csv
         self.export_csv(df, index=False, sep='\t', encoding='utf-16')
         return df
 
-    def wrangling_cp(self, df: DataFrame, group_by: str, to_keep: list=['country_code','state_name','state_code','province_name','province_code','lat','lon']) -> DataFrame:
+    def wrangling_geo(self, df: DataFrame, group_by_cols: list=['state_name','province_name'], to_keep: list=['country_code','state_name','state_code','province_name','province_code','lat','lon']) -> DataFrame:
         # Construye el polígono de geolocalización
         df = df[to_keep].copy()
+        df['group'] = df[group_by_cols].apply(', '.join, axis=1)
         # Construye el polígono de geolocalización
-        df = self.geo_polygon(df, group_by=group_by)
+        df = self.geo_polygon(df, group_by='group')
         # Crea variables de geolocalización importantes
         df = self.geo_metrics(df)
         # Exporta los resultados en formato csv
         self.export_csv(df, name_suffix='geoloc', index=False)
         return df
 
+    def merge_with_ile(self, ile: DataFrame, geo: DataFrame, ile_cols: str=['entidad','alc_o_municipio'], geo_cols: str=['state_name','province_name'], rename_to: str='estado, municipio', to_drop: list=['geometry','lat','lon','area','boundary','convex_hull'], **kwargs) -> DataFrame:
+        # Unir las columnas para evitar duplicidad de nombres
+        ile[rename_to] = ile[ile_cols].apply(', '.join, axis=1).map(lambda x: self.clean_text(x, lower=True).title())
+        geo[rename_to] = geo[geo_cols].apply(', '.join, axis=1).map(lambda x: self.clean_text(x, lower=True).title())
+        # Unir ILE con la geolocalización, manteniendo un registro original
+        df = ile.reset_index().merge(geo, on=rename_to).drop_duplicates('index')
+        # Exporta los resultados en formato csv
+        self.export_csv(df.drop(to_drop, axis=1), name_suffix='geoloc', index=False)
+        return df
