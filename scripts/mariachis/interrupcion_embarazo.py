@@ -1,5 +1,5 @@
 # Herencia de atributos y métodos
-from .base import BaseClass
+from ._base import BaseClass
 
 # Ingeniería de variables
 from numpy import nan

@@ -238,5 +238,4 @@ class BaseClass:
             perc = x/x.sum().sum()
             for summary, to_format, to_axis in zip([by_clust, by_var, perc],["{:.0f}","{:.0f}","{:.1%}"],[0,0,None]):
                 display(summary.style.format(to_format).background_gradient('Blues', axis=to_axis))
-
-
+    

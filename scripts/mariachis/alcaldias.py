@@ -1,5 +1,5 @@
 # Herencia de atributos y métodos
-from .base import BaseClass
+from ._base import BaseClass
 
 # Ingeniería de variables
 from pandas import DataFrame
@@ -13,7 +13,7 @@ class Alcaldias(BaseClass):
         '''
         super().__init__(base_dir, file_name)
 
-    def poldict_to_geodf(self, df: DataFrame, geo_col: str, step: int=10) -> GeoDataFrame:
+    def poldict_to_geodf(self, df: DataFrame, geo_col: str, step: int=10, crs_code: str='EPSG:6372') -> GeoDataFrame:
         '''
         Recibe un DataFrame con una columna que, dentro de un diccionario contiene los puntos que
         delimitan el polígono de la localidad, devuelve un GeoDataFrame con métricas de geolocalización importantes
@@ -26,7 +26,7 @@ class Alcaldias(BaseClass):
         # Para generar el polígono que delimita a la localidad
         df['geometry'] = df['geometry'].map(Polygon)
         # Convertir a GeoDataFrame
-        df = GeoDataFrame(df, geometry='geometry')
+        df = GeoDataFrame(df, crs=crs_code, geometry='geometry')
         # Para obtener su área, límite, punto central y el polígono que contiene a cada localidad
         for metric in ['area','boundary','centroid','convex_hull']:
             df[metric] = eval(f'df.{metric}')
@@ -36,7 +36,7 @@ class Alcaldias(BaseClass):
         df[[f'{geo_col}_lat', f'{geo_col}_lon']] = DataFrame(coor.tolist(), index=df.index)
         return df
 
-    def wrangling_alcaldias(self, df, col_to_correct: str, correct_list: str, geo_col: str='geo_shape', **kwargs) -> DataFrame:
+    def wrangling_alcaldias(self, df: DataFrame, col_to_correct: str, correct_list: str, geo_col: str='geo_shape', **kwargs) -> DataFrame:
         '''
         Recibe un DataFrame y realiza la limpieza del nombre de alcaldía, además obtiene su polígono de coordenadas y crea variables de geolocalización importantes
         '''
@@ -53,12 +53,13 @@ class Alcaldias(BaseClass):
 
     def merge_ile(self, ile: DataFrame, alc: DataFrame, ile_col: str='alc_o_municipio', alc_col: str='nomgeo_correct', how_merge: str='inner') -> DataFrame:
         '''
-        Une el nombre de alcaldías de la tabla ILE con el catálogo de alcaldías ya con geolocalización en donde 
-        los nombres tengan una similitud > 90%, el resto lo marca como zona foránea
+        Une el nombre de alcaldías de la tabla ILE con el catálogo de alcaldías y municipios ya con geolocalización
+        en donde los nombres tengan una similitud > 90%, el resto lo marca como zona foránea
         '''
+        # Elige el nombre que se parezca al 90% o más de algún nombre del catálogo de alcaldías o municipios
         df = self.choose_correct(ile, ile_col, alc[alc_col].tolist(), fill_value='Zona Foránea', cutoff=0.9)
+        # Une ambas tablas, para tener los datos de geolocalización en datos ILE
         df = df.merge(alc, how=how_merge, left_on=f'{ile_col}_correct', right_on=alc_col)
         # Exporta los resultados en formato csv
         self.export_csv(df, name_suffix='geoloc', index=False)
         return df
-    
