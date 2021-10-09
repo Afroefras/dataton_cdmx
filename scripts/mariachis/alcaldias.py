@@ -30,6 +30,10 @@ class Alcaldias(BaseClass):
         # Para obtener su área, límite, punto central y el polígono que contiene a cada localidad
         for metric in ['area','boundary','centroid','convex_hull']:
             df[metric] = eval(f'df.{metric}')
+        # Obtener coordenadas del centroide
+        coor = df['centroid'].map(lambda x: list(x.coords)[0])
+        # Establecer una columna para la latitud y otra de longitud
+        df[[f'{geo_col}_lat', f'{geo_col}_lon']] = DataFrame(coor.tolist(), index=df.index)
         return df
 
     def wrangling_alcaldias(self, df, col_to_correct: str, correct_list: str, geo_col: str='geo_shape', **kwargs) -> DataFrame:
@@ -42,8 +46,19 @@ class Alcaldias(BaseClass):
         df = df[[f'{col_to_correct}_correct', geo_col]].set_index(f'{col_to_correct}_correct')
         # Construye el polígono y crea variables de geolocalización importantes
         gdf = self.poldict_to_geodf(df, geo_col=geo_col, **kwargs)
+        gdf.drop(geo_col, axis=1, inplace=True)
         # Exporta los resultados en formato csv
         self.export_csv(gdf, name_suffix='geoloc')
         return gdf
 
+    def merge_ile(self, ile: DataFrame, alc: DataFrame, ile_col: str='alc_o_municipio', alc_col: str='nomgeo_correct', how_merge: str='inner') -> DataFrame:
+        '''
+        Une el nombre de alcaldías de la tabla ILE con el catálogo de alcaldías ya con geolocalización en donde 
+        los nombres tengan una similitud > 90%, el resto lo marca como zona foránea
+        '''
+        df = self.choose_correct(ile, ile_col, alc[alc_col].tolist(), fill_value='Zona Foránea', cutoff=0.9)
+        df = df.merge(alc, how=how_merge, left_on=f'{ile_col}_correct', right_on=alc_col)
+        # Exporta los resultados en formato csv
+        self.export_csv(df, name_suffix='geoloc', index=False)
+        return df
     

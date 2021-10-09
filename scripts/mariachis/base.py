@@ -11,7 +11,8 @@ from re import sub, UNICODE
 from unicodedata import normalize
 from string import ascii_uppercase
 from difflib import get_close_matches
-from pandas import DataFrame, read_csv, to_datetime
+from pandas import DataFrame, read_csv, to_datetime, options
+options.mode.chained_assignment = None
 
 # Modelos
 from sklearn.pipeline import Pipeline
