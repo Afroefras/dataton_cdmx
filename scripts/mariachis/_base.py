@@ -39,10 +39,12 @@ class BaseClass:
         self.base_dir = Path(base_dir)
         self.file_name = file_name
 
+    
     def __str__(self) -> str: 
         return f'Directorio: \t{self.base_dir}'
 
-    def cool_print(self, text: str, sleep_time: float=0.0, by_word: bool=False) -> None: 
+    
+    def cool_print(self, text: str, sleep_time: float=0.02, by_word: bool=False) -> None: 
         '''
         Imprimir como si se fuera escribiendo
         '''
@@ -56,43 +58,40 @@ class BaseClass:
             sleep(sleep_time*(9 if by_word else 1))
             # Imprimir texto acumulado
             print(acum)
+        # Mantener el texto en pantalla
         sleep(1.7)
-    
-    def __len__(self) -> str: 
-        '''
-        Obtener el número de carpetas en el directorio base
-        '''
-        folders = len(str(self.base_dir).split('/'))-1
-        self.cool_print(f"{folders} carpetas en {self.base_dir}")
-        return folders
 
+    
     def get_api(self, resource_id: str, base_url: str='https://datos.cdmx.gob.mx/api/3/action/datastore_search?resource_id=', distinct_rows: bool=True, row_limit: int=32000) -> DataFrame: 
         '''
         Obtener tabla via API
         '''
         # Parámetros de renglones únicos y límite de renglones
-        params = f'&distinct={"true" if distinct_rows else "false"}&limit={row_limit}'
-        # Unir url base con el id de los datos y los parámetros definidos
+        params = f'&distinct={str(distinct_rows).lower()}&limit={int(row_limit)}'
+        # Unir url base con el id de los datos y los parámetros 
+        # definidos
         full_url = base_url+resource_id+params
+
         try: 
             # Al devolver un objeto json, llamar a "records"
             df = DataFrame(get_req(full_url).json()['result']['records'])
             df_shape = df.shape
-            self.cool_print(f'Archivo importado desde: {full_url}\nCon {df_shape[0]} renglones y {df_shape[-1]} columnas')
+            self.cool_print(f'Archivo importado desde:\n{full_url}\nCon {df_shape[0]} renglones y {df_shape[-1]} columnas')
             return df
-        except: self.cool_print(f'Error al obtener desde: {full_url}\nIntenta de nuevo!')
+        except: self.cool_print(f'Error al obtener desde:\n{full_url}\nIntenta de nuevo!')
 
+    
     def get_csv(self, **kwargs) -> DataFrame: 
         '''
         Obtener tabla a partir de un archivo .csv
         '''
-        df = read_csv(self.base_dir.joinpath(f'{self.file_name}.csv'), low_memory=False, **kwargs)
         try: 
             df = read_csv(self.base_dir.joinpath(f'{self.file_name}.csv'), low_memory=False, **kwargs)
             df_shape = df.shape
-            self.cool_print(f'Archivo con nombre {self.file_name}.csv fue encontrado en\n{self.base_dir}\nCon {df_shape[0]} renglones y {df_shape[-1]} columnas')
+            self.cool_print(f'Archivo con nombre {self.file_name}.csv fue encontrado en:\n{self.base_dir}\nCon {df_shape[0]} renglones y {df_shape[-1]} columnas')
             return df
-        except: self.cool_print(f'No se encontró el archivo con nombre {self.file_name}.csv en {self.base_dir}\nSi el archivo csv existe, seguramente tiene un encoding y/o separador diferente a "utf-8" y "," respectivamente\nIntenta de nuevo!')
+        except: self.cool_print(f'No se encontró el archivo con nombre {self.file_name}.csv en:\n{self.base_dir}\nSi el archivo csv existe, seguramente tiene un encoding y/o separador diferente a "utf-8" y "," respectivamente\nIntenta de nuevo!')
+    
     
     def export_csv(self, df: DataFrame, name_suffix=None, **kwargs) -> None: 
         '''
@@ -100,8 +99,9 @@ class BaseClass:
         '''
         export_name = f'{self.file_name}.csv' if name_suffix==None else f'{self.file_name}_{name_suffix}.csv'
         df.to_csv(self.base_dir.joinpath(export_name), **kwargs)
-        self.cool_print(f'Archivo: {export_name} fue exportado exitosamente en:\n{self.base_dir}')
+        self.cool_print(f'Archivo: {export_name}.csv fue exportado exitosamente en:\n{self.base_dir}')
 
+    
     def api_export(self, export_kwargs: Dict={}, **api_kwargs) -> DataFrame: 
         '''
         Llamar método para leer API y luego exportar la tabla en formato csv
@@ -110,7 +110,8 @@ class BaseClass:
         self.export_csv(df=data, **export_kwargs)
         return data
 
-    def full_import(self, api: bool=True, api_export: bool=True, **kwargs): 
+    
+    def full_import(self, api: bool=True, api_export: bool=True, **kwargs) -> DataFrame: 
         '''
         Función que permite elegir alguna de las 2 formas de importar los datos. Si es API permite exportar el resultado
         '''
@@ -123,24 +124,28 @@ class BaseClass:
         else: df = self.get_csv(**kwargs)
         return df
 
-    def rem_nan_rows(self, df: DataFrame, thres: float=1.0):
+    
+    def rem_nan_rows(self, df: DataFrame, thres: float=1.0) -> DataFrame:
         '''
         Omitir registros mayor o igual al porcentaje "thres" de valores nulos
         '''
         to_remove = []
-        for i,row in enumerate(df.index):
-            # Revisar por renglón
+        # enumerate(['A','B','C']) == zip(range(len(['A','B','C']),['A','B','C'])) == [(0,'A'), (1,'B'), (2,'C')]
+        for i,_ in enumerate(df.index):
+            # Revisar por renglón, transponiéndolo
             sub_df = df.iloc[i,:].T
             # Obtener el porcentaje de nulos
             perc_nan = sub_df.isnull().mean()
-            # Si dicho porcentaje es mayor, guardar en una lista
-            if perc_nan >= thres: to_remove.append(row)
+            # Si dicho porcentaje es mayor, guardar el lugar del renglón en una lista
+            if perc_nan >= thres: to_remove.append(i)
+
         # Omitir los registros de la lista con el porcentaje de valores nulos más grande que el parámetro "thres"
         df = df.loc[~df.index.isin(to_remove),:]
         # Informar cuántos renglones fueron omitidos
         self.cool_print(f'{len(to_remove)} renglones con {"{:.1%}".format(thres)}% o más de valores nulos fueron eliminados')
         return df
 
+    
     def clean_number(self, text: str) -> str: 
         '''
         Limpieza numérica
@@ -151,6 +156,7 @@ class BaseClass:
         if clean in ('','nan'): clean = nan
         return clean
 
+    
     def clean_text(self, text: str, pattern: str="[^a-zA-Z0-9\s]", lower: bool=False) -> str: 
         '''
         Limpieza de texto
@@ -167,6 +173,7 @@ class BaseClass:
         if clean in ('','nan'): clean = nan
         return clean
 
+    
     def choose_correct(self, df: DataFrame, col: str, correct_list: list, fill_value: str='DESCONOCIDO', **kwargs) -> DataFrame:
         '''
         Recibe un DataFrame y una lista de posibilidades, especificando la columna a revisar
@@ -176,6 +183,7 @@ class BaseClass:
         correct_clean = list(map(lambda x: self.clean_text(x, lower=True), correct_list))
         # Hacer un diccionario de posibilidades limpias y las originales recibidas
         correct_dict = dict(zip(correct_clean, correct_list))
+
         # Aplicar la limpieza a la columna especificada
         df[f'{col}_correct'] = df[col].map(lambda x: self.clean_text(x,lower=True))
         # Encontrar las posibilidades más parecidas
@@ -186,12 +194,14 @@ class BaseClass:
         df[f'{col}_correct'] = df[f'{col}_correct'].map(correct_dict).fillna(fill_value)
         return df
 
-    def date_vars(self, df: DataFrame, date_col: str='fecha') -> DataFrame: 
+    
+    def date_vars(self, df: DataFrame, date_col: str='fecha', **kwargs) -> DataFrame: 
         '''
-        Crear las columnas de divisiones de fechas
+        Crear variables de fecha: año, trimestre, mes
         '''
         # Convertir a tipo datetime
-        df[date_col] = to_datetime(df[date_col])
+        df[date_col] = to_datetime(df[date_col], **kwargs)
+
         # Para extraer la división de año
         df[f'{date_col}_year'] = df[date_col].dt.year.map(int).map(str)
         # Trimestre a dos caracteres
@@ -201,26 +211,35 @@ class BaseClass:
         # Concatenar el año, tanto trimestre como con el mes
         df[f'{date_col}_yearquarter'] = df[f'{date_col}_year']+' - '+df[f'{date_col}_quarter']
         df[f'{date_col}_yearmonth'] = df[f'{date_col}_year']+' - '+df[f'{date_col}_month']
+
         # Mantener sólo la fecha
         df[date_col] = df[date_col].dt.date
         return df
 
+    
     def make_clusters(self, df: DataFrame, n_clusters: int=5, cols: list=None, scaler=RobustScaler, cluster_obj=GaussianMixture, **kwargs) -> tuple: 
         '''
         Recibe un DataFrame y lo devuelve con una columna adicional indicando el cluster asignado, además del objeto para predecir en nuevos datos
         '''
         cluster_cols = cols if cols!=None else df.columns
+        # Instanciar el objeto para clustering, con los parámetros extra que sean proporcionados
+        cluster_obj = cluster_obj(n_clusters, random_state=22, **kwargs)
+
+        # Si no se recibe objeto para escalar, sólo usar el objeto para clustering
+        if scaler==None: pipe_clust = cluster_obj
         # Primero escalar, después agrupar
-        if scaler==None: pipe_clust = cluster_obj(n_clusters, random_state=22, **kwargs)
-        else: pipe_clust = Pipeline(steps=[('scaler', scaler()), ('cluster', cluster_obj(n_clusters, random_state=22, **kwargs))])
+        else: pipe_clust = Pipeline(steps=[('scaler', scaler()), ('cluster', cluster_obj)])
+
         # Nueva columna definiendo el clúster
         df['cluster'] = pipe_clust.fit_predict(df[cluster_cols])
-        # Diccionario para reemplazar A: 1, B: 2, etc
-        cluster_dict = dict(zip(range(n_clusters), ascii_uppercase[:n_clusters]))
+
+        # Diccionario para reemplazar A: 1, B: 2, C:3, étc dependiendo el número de grupos
+        cluster_dict = dict(enumerate(ascii_uppercase[:n_clusters]))
         # Aplicar diccionario
         df['cluster'] = df['cluster'].map(cluster_dict)
         return df['cluster'], pipe_clust
 
+    
     def profiles(self, df: DataFrame, cluster_col: str='cluster') -> None: 
         '''
         Recibe el resultado del método anterior para mostrar la diferencia numérica y categórica de cada clúster para todas las variables
@@ -228,26 +247,37 @@ class BaseClass:
         prof = {}
         # Obtener el tipo de variable para cada columna
         df_coltype = df.dtypes
+
         # Guardar las variables numéricas
-        num_cols = [x for x,y in zip(df_coltype.index,df_coltype) if y!=object]
+        num_cols = [x for x,y in zip(df_coltype.index, df_coltype) if y!=object]
         # Promedio de cada variable numérica según el clúster
         if len(num_cols)>0: prof['numeric'] = df.pivot_table(index=cluster_col, values=num_cols)
+
         # Obtener las variables categóricas
         cat_cols = [x for x in df.columns if x not in num_cols]
-        # Columna auxiliar para contabilizar
+
+        # Columna auxiliar para contar registros
         df['n'] = 1
         for col in cat_cols: 
             # Cuenta de registros para cada variable categórica según el clúster
             prof[col] = df.pivot_table(index=cluster_col, columns=col, aggfunc={'n': sum})
+
         # Mostrar cada perfilamiento en un DataFrame con formato condicional
         for x in prof.values():
             x = x.fillna(0)
+            # Con grupo en renglones, valores de clase en columna
             by_clust = x.copy()
-            by_var = x.T.copy()
+            # Igual que la anterior, pero mostrando el % del total
             perc = x/x.sum().sum()
-            for summary, to_format, to_axis in zip([by_clust, by_var, perc],["{:.0f}","{:.0f}","{:.1%}"],[0,0,None]):
+            # Al revés, clúster en columnas
+            by_var = x.T.copy()
+
+            # Mostrar las tres tablas, para notar distribución por clúster, distrib por valor de clase a través de clúster y el % del total
+            for summary, to_format, to_axis in zip([by_clust, by_var, perc], ["{:.0f}","{:.0f}","{:.1%}"], [0,0,None]):
+                # Aplicar el formato de número y formato condicional asignado
                 display(summary.style.format(to_format).background_gradient('Blues', axis=to_axis))
 
+    
     def geo_polygon(self, df: DataFrame, crs_code: str='EPSG:6372', just_geodf: bool=False, geom_col: str=None, coord_cols: tuple=('lat','lon'), group_by: str=None, create_geoshape: bool=False) -> DataFrame:
         '''
         Crea el polígono desde un DataFrame ya sea con una columna de "geometry" o dos columnas: latitud y otra de longitud,
@@ -255,9 +285,10 @@ class BaseClass:
         '''
         # Omitir los registros nulos del nivel de geolocalización al que se va a agrupar
         if group_by != None: df = df[df[group_by].fillna('').astype(str).str.len()>0].copy()
-        else: pass
+
         # Establecer la columna de geolocalización, ya sean las coordenadas o la columna de polígono
         geom = points_from_xy(df[coord_cols[-1]], df[coord_cols[0]]) if geom_col==None else geom_col
+
         # Crear GeoDataFrame
         gdf = GeoDataFrame(df, crs=crs_code, geometry=geom)
         if create_geoshape: 
@@ -265,15 +296,20 @@ class BaseClass:
             def extract_geoshape(x): return GeoSeries([x]).__geo_interface__['features'][0]['geometry']
             # Aplicar dicha función a geometry para crear la nueva columna
             gdf['geo_shape'] = df['geometry'].map(extract_geoshape)
+
         # Si sólo se desea la transformación
         if just_geodf: return gdf
+
         # O si se desdea agrupar a un nivel de geolocalización superior
         df = gdf.dissolve(by=group_by)
+
         # Asegurarse de tener un polígono, porque probablemente el nivel de agregación resulta en una o dos coordenadas
         df['geometry'] = df['geometry'].buffer(0.05)
+
         # El nivel de agregación queda como índice, pasar a columna
         df.reset_index(inplace=True)
         return df
+    
     
     def geo_metrics(self, df: GeoDataFrame, metrics: list=['area','boundary','centroid','convex_hull']) -> GeoDataFrame:
         '''
@@ -282,13 +318,15 @@ class BaseClass:
         # Obtener su área, límite, punto central y el polígono que contiene a cada localidad
         for metric in metrics:
             df[metric] = eval(f'df.{metric}')
+            
         # Obtener coordenadas del centroide
         coor = df['centroid'].map(lambda x: list(x.coords)[0])
         # Establecer una columna para la latitud y otra de longitud
         df[['centroid_lat', 'centroid_lon']] = DataFrame(coor.tolist(), index=df.index)
         return df
 
-    def multishift(self, df: DataFrame, id_cols: list, date_col: str='fecha', shifts: list=range(1,22), rem_sum_zero: bool=True,**pivot_args): 
+    
+    def multishift(self, df: DataFrame, id_cols: list, date_col: str='fecha', shifts: list=range(1,22), rem_sum_zero: bool=True, **pivot_args): 
         '''
         Escalona los valores para crear una Tabla Analítica de Datos con formato: valor hoy, valor 1 día antes, dos días antes, etc
         '''
@@ -322,18 +360,28 @@ class BaseClass:
             tot_dates = DataFrame(date_range(start=df_id[date_col].min(), end=df_id[date_col].max()).date, columns=[date_col])
             df_id = df_id.merge(tot_dates, on=date_col, how='right').fillna(0)
             cols = df_id.columns[1: ]
+
             # Comenzar el "escalonado" de la tabla pivote inicial
             aux = df_id.copy()
-            for i in shifts: 
+            for i in shifts:
+                # Renombrar la columna que se acaba de escalonar
                 aux = aux.join(df_id.iloc[: ,1: ].shift(i).rename(columns={x: f'{x}_{str(i).zfill(2)}' for x in cols}))
+            # No perder de vista el "id" de este subconjunto
             aux[id_col] = row
+            # Agregar a la tabla total
             total = total.append(aux, ignore_index=True)
+
+        # Mantener como índice para tener una matriz X de valores continuos
         total.set_index(id_cols+[date_col], inplace=True)
+
+        # Omitir registros que suman 0?
         if rem_sum_zero:
             total['sum'] = total.sum(axis=1)
             total = total[total['sum']>0].drop('sum', axis=1)
+
         return total
 
+    
     def apply_multishift(self, df: DataFrame, export_shifted: bool=True, **kwargs) -> tuple: 
         # Aplicar la función "multishift" con los parámetros personalizados
         df = self.multishift(df, **kwargs)
@@ -345,6 +393,7 @@ class BaseClass:
 
         # Obtener la lista de las columnas de todos los días previos
         prev = df.head(1).filter(regex='_\d+').columns.tolist()
+        # Y aquellas originales, sin escalonar
         actual = [x for x in df.columns if x not in prev]
 
         # Seleccionar los datos para construir f(X)=y
@@ -352,6 +401,7 @@ class BaseClass:
         y = df[actual].sum(axis=1).values
         return X, y
 
+    
     def train_reg_model(self, X: DataFrame, y: array, scaler=RobustScaler, model=LinearRegression, **kwargs): 
         '''
         Escala y entrena un modelo, devuelve el score, el objeto tipo Pipeline y la relevancia de cada variable
@@ -371,41 +421,55 @@ class BaseClass:
         self.cool_print(f"Score: {'{:.2%}'.format(test_score)}\nTraining score: {'{:.2%}'.format(train_score)}")
 
         # Elige la forma de obtener las variables más representativas
+        # Ya sea por Regresión Lineal
         try: most_important_features = pipe_obj[-1].coef_ 
         except: 
+            # O por Árbol de decisión, Bosque Aleatorio, XGBoost
             try: most_important_features = pipe_obj[-1].feature_importances_
+            # De otro modo, solamente asignar un vector de 0s a este objeto
             except: most_important_features = [0]*len(X.columns)
+
         # Las ordena descendentemente
         coef_var = DataFrame(zip(X.columns, most_important_features)).sort_values(1, ascending=False).reset_index(drop=True)
+
+        # Devuelve el objeto para clustering, la lista de scores tanto en train como en test y la relevancia de cada variable para el modelo 
         return pipe_obj, (test_score,train_score), coef_var
 
+    
     def train_chunk(self, X: DataFrame, y: array, model, id_cols: list, to_drop: list, **kwargs) -> tuple:
         '''
         Entrena un modelo diferente para cada valor único de la combinación de "id_cols"
         '''
         # Omitir columnas innecesarias
         df = X.reset_index().drop(to_drop, axis=1)
+        
         # Sólo una columna que servirá como ID
         id_col = ','.join(id_cols)
         df[id_col] = df[id_cols].astype(str).apply(','.join, axis=1)
+
         # Unir el vector "y" con la matriz "X"
         df['real'] = y
+
         # Diccionarios para los resultados de cada modelo
         model_dict, score_dict, coef_dict = {}, {}, {}
         # Para cada valor único de "id_col"
         for id_x in set(df[id_col]):
             # Filtrar el subconjunto de datos pertenecientes a dicho valor único
             sub_df = df.set_index(id_col).loc[id_x,:].copy()
+
             # Dividir nuevamente la matriz "X"
             sub_X = sub_df.iloc[:,:-1]
             # Y el vector "y"
             sub_y = sub_df.iloc[:,-1].values
+
             self.cool_print(f'Para {id_x}:')
             # Entrena el modelo con los argumentos que se proporcionen y devuelve 3 objetos: modelo, tuple de scores (test,train) y los coeficientes
             model_dict[f'{id_x}'], score_dict[f'{id_x}'], coef_dict[f'{id_x}'] = self.train_reg_model(sub_X, sub_y, model=model, **kwargs)
+
         # Devuelve el diccionario, una llave para cada modelo
         return model_dict, score_dict, coef_dict
 
+    
     def show_scores(self, score_dict: Dict) -> None:
         '''
         Del diccionario de scores recibido en el método anterior, imprime los scores de cada modelo ordenado descendentemente por test 
@@ -413,16 +477,20 @@ class BaseClass:
         to_display = DataFrame(score_dict, index=['Test_score','Train_score']).T.sort_values('Test_score', ascending=False)
         display(to_display.style.format("{:.1%}").background_gradient('Blues', axis=0))
 
+    
     def real_vs_est(self, X: DataFrame, y: array, model, omit_zero: bool=True) -> DataFrame: 
         # De todo el conjunto de datos...
         df = X.join(DataFrame(y, index=X.index, columns=['real']))
         # Predice el el valor...
         df['estimado'] = model.predict(X)
+
         # Si el parámetro lo indica, reemplaza negativos por 0
         if omit_zero: df['estimado'] = df['estimado'].map(lambda x: max(0,x))
+
         # Y devuelve sólo las columna real y la estimada
         return df[['real','estimado']]
 
+    
     def plot_real_vs_est(self, X: DataFrame, y: array, model, id_col: str, date_col: str, from_year: int=1900, to_year: int=datetime.now().year): 
         # Obtener real vs estimado
         pred = self.real_vs_est(X, y, model).reset_index()
@@ -438,31 +506,44 @@ class BaseClass:
             df_id = df.loc[x,: ].reset_index(drop=True).set_index(date_col)
             df_id.iplot(title=x)
 
+    
     def multiplot(self, X: DataFrame, y: array, models_dict, id_cols: list, date_col='fingreso', **kwargs):
+        '''
+        Mostrar el valor real vs el estimado para cada modelo
+        '''
+        # Mantener las columnas originales del conjunto en donde se entrenó el modelo
         model_cols = X.columns
-        # Omitir columnas innecesarias
+
+        # Presentar índices para un paso posterior
         df = X.reset_index()
+
         # Sólo una columna que servirá como ID
         id_col = ','.join(id_cols)
         df[id_col] = df[id_cols].astype(str).apply(','.join, axis=1)
+
         # Unir el vector "y" con la matriz "X"
         df['real'] = y
+
         # Para cada valor único de "id_col"
         for id_x, model_x in models_dict.items():
             # Filtrar el subconjunto de datos pertenecientes a dicho valor único
             sub_df = df.set_index(id_col).loc[id_x,:].copy()
             sub_df = sub_df.reset_index().set_index([id_col,date_col])
+
             # Dividir nuevamente la matriz "X"
             sub_X = sub_df.iloc[:,:-1]
             # Y el vector "y"
             sub_y = sub_df.iloc[:,-1].values
+
             # Mostrar el comportamiento de predicción vs real para cada modelo
             self.plot_real_vs_est(sub_X[model_cols], sub_y, model=model_x, id_col=id_col, date_col=date_col, **kwargs)
 
+    
     def save_model(self, model, name: str) -> None:
         # Guarda el pickle con extensión ".xz" para comprimirlo
         with open(self.base_dir.joinpath(f'{name}.xz'), 'wb') as f:
             # Como diccionario para conocer su nombre
             save_pkl({name:model}, f)
+            
         # Confirma que el archivo fue guardado exitosamente
         self.cool_print(f'El modelo {name}.xz fue guardado existosamente en:\n{self.base_dir}')
