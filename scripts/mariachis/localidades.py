@@ -65,7 +65,7 @@ class GeoLoc(BaseClass):
         self.export_csv(df, name_suffix='geoloc', index=False)
         return df
 
-    def merge_with_ile(self, ile: DataFrame, geo: DataFrame, ile_cols: str=['entidad','alc_o_municipio'], geo_cols: str=['state_name','province_name'], rename_to: str='estado, municipio', to_drop: list=['geometry','lat','lon','area','boundary','convex_hull'], **kwargs) -> DataFrame:
+    def merge_with_ile(self, ile: DataFrame, geo: DataFrame, ile_cols: str=['entidad','alc_o_municipio'], geo_cols: str=['state_name','province_name'], rename_to: str='estado, municipio', to_drop: list=['geometry','lat','lon','area','boundary','convex_hull']) -> DataFrame:
         # Unir las columnas para evitar duplicidad de nombres
         ile[rename_to] = ile[ile_cols].apply(', '.join, axis=1).map(lambda x: self.clean_text(x, lower=True).title())
         geo[rename_to] = geo[geo_cols].apply(', '.join, axis=1).map(lambda x: self.clean_text(x, lower=True).title())

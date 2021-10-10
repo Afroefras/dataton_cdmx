@@ -2,23 +2,31 @@
 from time import sleep
 from typing import Dict
 from pathlib import Path
+from pickle import dump as save_pkl
 from requests import get as get_req
 from IPython.display import clear_output, display
 
 # Ingeniería de variables
-from numpy import nan
 from re import sub, UNICODE
+from numpy import nan, array
+from datetime import datetime
 from unicodedata import normalize
 from string import ascii_uppercase
 from difflib import get_close_matches
 from geopandas import GeoDataFrame, GeoSeries, points_from_xy
-from pandas import DataFrame, read_csv, to_datetime, options
+from pandas import DataFrame, read_csv, to_datetime, options, date_range
 options.mode.chained_assignment = None
 
 # Modelos
 from sklearn.pipeline import Pipeline
 from sklearn.mixture import GaussianMixture
 from sklearn.preprocessing import RobustScaler
+from sklearn.linear_model import LinearRegression
+from sklearn.model_selection import train_test_split
+
+# Gráficas
+import cufflinks as cf
+cf.go_offline()
 
 class BaseClass: 
     '''
@@ -82,7 +90,7 @@ class BaseClass:
         try: 
             df = read_csv(self.base_dir.joinpath(f'{self.file_name}.csv'), low_memory=False, **kwargs)
             df_shape = df.shape
-            self.cool_print(f'Archivo con nombre {self.file_name}.csv fue encontrado en {self.base_dir}\nCon {df_shape[0]} renglones y {df_shape[-1]} columnas')
+            self.cool_print(f'Archivo con nombre {self.file_name}.csv fue encontrado en\n{self.base_dir}\nCon {df_shape[0]} renglones y {df_shape[-1]} columnas')
             return df
         except: self.cool_print(f'No se encontró el archivo con nombre {self.file_name}.csv en {self.base_dir}\nSi el archivo csv existe, seguramente tiene un encoding y/o separador diferente a "utf-8" y "," respectivamente\nIntenta de nuevo!')
     
@@ -92,7 +100,7 @@ class BaseClass:
         '''
         export_name = f'{self.file_name}.csv' if name_suffix==None else f'{self.file_name}_{name_suffix}.csv'
         df.to_csv(self.base_dir.joinpath(export_name), **kwargs)
-        self.cool_print(f'Archivo: {export_name} fue exportado exitosamente en: {self.base_dir}')
+        self.cool_print(f'Archivo: {export_name} fue exportado exitosamente en:\n{self.base_dir}')
 
     def api_export(self, export_kwargs: Dict={}, **api_kwargs) -> DataFrame: 
         '''
@@ -279,3 +287,182 @@ class BaseClass:
         # Establecer una columna para la latitud y otra de longitud
         df[['centroid_lat', 'centroid_lon']] = DataFrame(coor.tolist(), index=df.index)
         return df
+
+    def multishift(self, df: DataFrame, id_cols: list, date_col: str='fecha', shifts: list=range(1,22), rem_sum_zero: bool=True,**pivot_args): 
+        '''
+        Escalona los valores para crear una Tabla Analítica de Datos con formato: valor hoy, valor 1 día antes, dos días antes, etc
+        '''
+        # Asegurarse que tiene solamente la fecha
+        df[date_col] = df[date_col].map(to_datetime).dt.date
+
+        # Sólo una columna que servirá como ID
+        id_col = ','.join(id_cols)
+        df[id_col] = df[id_cols].astype(str).apply(','.join, axis=1)
+
+        # Omitir aquellos IDs con menor frequencia que el máximo valor de "shifts", porque inevitablemente tendrán shift vacíos
+        freq = df[id_col].value_counts().to_frame()
+        omit_idx = freq[freq[id_col]<=max(shifts)].index.to_list()
+        if len(omit_idx)>0: 
+            df = df[~df[id_col].isin(omit_idx)].copy()
+        
+        # Columna auxiliar para conteo de registros
+        df['n'] = 1
+
+        # Estructurar una tabla pivote, de donde se partirá para "recorrer" los días
+        df = df.pivot_table(index=[id_col,date_col], **pivot_args, fill_value=0)
+        # Unir las posibles multi-columnas en una
+        df.columns = ['_'.join([x for x in col]) if not isinstance(df.columns[0],str) else col for col in df.columns]
+
+        df = df.reset_index()
+        total = DataFrame()
+        for row in set(df[id_col]): 
+            # Para cada grupo de renglones por ID
+            df_id = df.set_index(id_col).loc[row,: ]
+            # Asegurar todas las fechas
+            tot_dates = DataFrame(date_range(start=df_id[date_col].min(), end=df_id[date_col].max()).date, columns=[date_col])
+            df_id = df_id.merge(tot_dates, on=date_col, how='right').fillna(0)
+            cols = df_id.columns[1: ]
+            # Comenzar el "escalonado" de la tabla pivote inicial
+            aux = df_id.copy()
+            for i in shifts: 
+                aux = aux.join(df_id.iloc[: ,1: ].shift(i).rename(columns={x: f'{x}_{str(i).zfill(2)}' for x in cols}))
+            aux[id_col] = row
+            total = total.append(aux, ignore_index=True)
+        total.set_index(id_cols+[date_col], inplace=True)
+        if rem_sum_zero:
+            total['sum'] = total.sum(axis=1)
+            total = total[total['sum']>0].drop('sum', axis=1)
+        return total
+
+    def apply_multishift(self, df: DataFrame, export_shifted: bool=True, **kwargs) -> tuple: 
+        # Aplicar la función "multishift" con los parámetros personalizados
+        df = self.multishift(df, **kwargs)
+        df.dropna(inplace=True)
+        df = df[sorted(df.columns)].copy()
+
+        # Tal vez el usuario quiere exportar los resultados
+        if export_shifted: self.export_csv(df, name_suffix='shifted')
+
+        # Obtener la lista de las columnas de todos los días previos
+        prev = df.head(1).filter(regex='_\d+').columns.tolist()
+        actual = [x for x in df.columns if x not in prev]
+
+        # Seleccionar los datos para construir f(X)=y
+        X = df[prev].copy()
+        y = df[actual].sum(axis=1).values
+        return X, y
+
+    def train_reg_model(self, X: DataFrame, y: array, scaler=RobustScaler, model=LinearRegression, **kwargs): 
+        '''
+        Escala y entrena un modelo, devuelve el score, el objeto tipo Pipeline y la relevancia de cada variable
+        '''
+        # Conjunto de entrenamiento y de test
+        X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.85, random_state=7, shuffle=True)
+
+        # Define los pasos del flujo
+        pipe_obj = Pipeline(steps=[('prep', scaler()), ('model', model(**kwargs))])
+
+        # Entrena y guarda el score en test
+        test_score = pipe_obj.fit(X_train,y_train).score(X_test, y_test)
+        # Guarda el score en train, para revisar sobreajuste
+        train_score = pipe_obj.score(X_train,y_train)
+
+        # Imprime los scores
+        self.cool_print(f"Score: {'{:.2%}'.format(test_score)}\nTraining score: {'{:.2%}'.format(train_score)}")
+
+        # Elige la forma de obtener las variables más representativas
+        try: most_important_features = pipe_obj[-1].coef_ 
+        except: 
+            try: most_important_features = pipe_obj[-1].feature_importances_
+            except: most_important_features = [0]*len(X.columns)
+        # Las ordena descendentemente
+        coef_var = DataFrame(zip(X.columns, most_important_features)).sort_values(1, ascending=False).reset_index(drop=True)
+        return pipe_obj, (test_score,train_score), coef_var
+
+    def train_chunk(self, X: DataFrame, y: array, model, id_cols: list, to_drop: list, **kwargs) -> tuple:
+        '''
+        Entrena un modelo diferente para cada valor único de la combinación de "id_cols"
+        '''
+        # Omitir columnas innecesarias
+        df = X.reset_index().drop(to_drop, axis=1)
+        # Sólo una columna que servirá como ID
+        id_col = ','.join(id_cols)
+        df[id_col] = df[id_cols].astype(str).apply(','.join, axis=1)
+        # Unir el vector "y" con la matriz "X"
+        df['real'] = y
+        # Diccionarios para los resultados de cada modelo
+        model_dict, score_dict, coef_dict = {}, {}, {}
+        # Para cada valor único de "id_col"
+        for id_x in set(df[id_col]):
+            # Filtrar el subconjunto de datos pertenecientes a dicho valor único
+            sub_df = df.set_index(id_col).loc[id_x,:].copy()
+            # Dividir nuevamente la matriz "X"
+            sub_X = sub_df.iloc[:,:-1]
+            # Y el vector "y"
+            sub_y = sub_df.iloc[:,-1].values
+            self.cool_print(f'Para {id_x}:')
+            # Entrena el modelo con los argumentos que se proporcionen y devuelve 3 objetos: modelo, tuple de scores (test,train) y los coeficientes
+            model_dict[f'{id_x}'], score_dict[f'{id_x}'], coef_dict[f'{id_x}'] = self.train_reg_model(sub_X, sub_y, model=model, **kwargs)
+        # Devuelve el diccionario, una llave para cada modelo
+        return model_dict, score_dict, coef_dict
+
+    def show_scores(self, score_dict: Dict) -> None:
+        '''
+        Del diccionario de scores recibido en el método anterior, imprime los scores de cada modelo ordenado descendentemente por test 
+        '''
+        to_display = DataFrame(score_dict, index=['Test_score','Train_score']).T.sort_values('Test_score', ascending=False)
+        display(to_display.style.format("{:.1%}").background_gradient('Blues', axis=0))
+
+    def real_vs_est(self, X: DataFrame, y: array, model, omit_zero: bool=True) -> DataFrame: 
+        # De todo el conjunto de datos...
+        df = X.join(DataFrame(y, index=X.index, columns=['real']))
+        # Predice el el valor...
+        df['estimado'] = model.predict(X)
+        # Si el parámetro lo indica, reemplaza negativos por 0
+        if omit_zero: df['estimado'] = df['estimado'].map(lambda x: max(0,x))
+        # Y devuelve sólo las columna real y la estimada
+        return df[['real','estimado']]
+
+    def plot_real_vs_est(self, X: DataFrame, y: array, model, id_col: str, date_col: str, from_year: int=1900, to_year: int=datetime.now().year): 
+        # Obtener real vs estimado
+        pred = self.real_vs_est(X, y, model).reset_index()
+
+        # Filtrar sólo años de interés
+        pred['year'] = to_datetime(pred[date_col]).dt.year
+        df = pred[(pred['year']>=from_year)&(pred['year']<=to_year)].copy()
+        df.drop(columns='year', inplace=True)
+
+        # Mostrar comportamiento real vs estimado
+        df.set_index(id_col, inplace=True)
+        for x in set(df.index): 
+            df_id = df.loc[x,: ].reset_index(drop=True).set_index(date_col)
+            df_id.iplot(title=x)
+
+    def multiplot(self, X: DataFrame, y: array, models_dict, id_cols: list, date_col='fingreso', **kwargs):
+        model_cols = X.columns
+        # Omitir columnas innecesarias
+        df = X.reset_index()
+        # Sólo una columna que servirá como ID
+        id_col = ','.join(id_cols)
+        df[id_col] = df[id_cols].astype(str).apply(','.join, axis=1)
+        # Unir el vector "y" con la matriz "X"
+        df['real'] = y
+        # Para cada valor único de "id_col"
+        for id_x, model_x in models_dict.items():
+            # Filtrar el subconjunto de datos pertenecientes a dicho valor único
+            sub_df = df.set_index(id_col).loc[id_x,:].copy()
+            sub_df = sub_df.reset_index().set_index([id_col,date_col])
+            # Dividir nuevamente la matriz "X"
+            sub_X = sub_df.iloc[:,:-1]
+            # Y el vector "y"
+            sub_y = sub_df.iloc[:,-1].values
+            # Mostrar el comportamiento de predicción vs real para cada modelo
+            self.plot_real_vs_est(sub_X[model_cols], sub_y, model=model_x, id_col=id_col, date_col=date_col, **kwargs)
+
+    def save_model(self, model, name: str) -> None:
+        # Guarda el pickle con extensión ".xz" para comprimirlo
+        with open(self.base_dir.joinpath(f'{name}.xz'), 'wb') as f:
+            # Como diccionario para conocer su nombre
+            save_pkl({name:model}, f)
+        # Confirma que el archivo fue guardado exitosamente
+        self.cool_print(f'El modelo {name}.xz fue guardado existosamente en:\n{self.base_dir}')

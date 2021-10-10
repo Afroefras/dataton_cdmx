@@ -2,7 +2,7 @@
 from ._base import BaseClass
 
 # Ingeniería de variables
-from numpy import nan
+from numpy import array, nan
 from typing import Dict
 from pandas import DataFrame, cut, qcut
 
@@ -127,4 +127,8 @@ class InterrupcionEmbarazo(BaseClass):
         X['cluster'], cluster_pipe = self.make_clusters(X, scaler=None, cluster_obj=KModes, init='Huang', n_jobs=-1, **kwargs)
         df = df.join(X[['cluster']])
         return df, cluster_pipe
-        
+
+    def build_tad(self, df: DataFrame, date_col='fingreso', **kwargs) -> DataFrame:
+        df = df[df[date_col]!='DESCONOCIDO'].copy()
+        X, y = self.apply_multishift(df, date_col=date_col, id_cols=['nombre'], aggfunc={'n':'count'}, **kwargs)
+        return X,y
