@@ -1,4 +1,5 @@
-# Concurso con datos abiertos de la CDMX
+# Concurso con datos abiertos de la CDMX:
+## Se modelan datos de Interrupción Legal del Embarazo y llamadas a la Línea Mujeres, tanto clustering como pronóstico 💜
 
 ### Estructura del repositorio:
     .
@@ -155,8 +156,6 @@ La métrica utilizada para evaluar el comportamiento de cada modelo de series de
 |**MAPE**|17%|21%|16%|
 
 *Fuente: Elaboración propia con resultados de modelación LM*
-<br>
-
 <br><br>
 
 Ahora, respecto a los **hallazgos de la ILE**, descubrimos que parece haber una tendencia a la baja desde 2016, sin embargo a partir de 2019 se tiene un ascenso en la tendencia de la ILE. En definitiva a partir de abril 2020, la tendencia cambia radicalmente lo que nos hace preguntarnos: ¿Cuántos embarazos no deseados ocurrieron sin oportunidad de asistir a la ILE?
@@ -195,19 +194,18 @@ Es muy importante dejar claro que aplicar un algoritmo de clustering para encont
 <br>
 
 &#x1F536; **Semáforo de vulnerabilidad NARANJA**
-4. Mujeres foráneas que acuden en 2018, o son estudiantes o no contestaron ocupación, con edades de 19 a 21 años y sin hijos. Recibieron dos citas previas, consejería, terapia dual y se prescribió analgésico.
-5. Trabajadoras del hogar no remuneradas de 22 a 25 años con secundaria y sin hijos. Menarca ligeramente tardía respecto al promedio: a los 13 años. Recibieron terapia dual y se desconoce si hubo complicaciones.
-6. Trabajadoras del hogar no remuneradas de 22 a 35 años con secundaria y dos hijos en promedio. No ocupan MPF y acuden con una cita previa y siete semanas de gestación, recibe terapia dual y sin dolor después del procedimiento.
-7. Trabajadoras del hogar no remuneradas de 30 a 35 años con secundaria, en unión libre con uno o más hijos y acuden acompañadas por su pareja. Es referida de otra unidad  con tres o más citas previas, hubo dolor por lo que se prescribió analgésico.
-8. Alta frecuencia en 2020, personas de diferentes niveles educativos (pocos sin acceso a la educación) con edades entre 22 a 25 sin hijos ni MPF previo. Recibieron consejería y no se complica el procedimiento ni tuvieron dolor después de él.
+1. Mujeres foráneas que acuden en 2018, o son estudiantes o no contestaron ocupación, con edades de 19 a 21 años y sin hijos. Recibieron dos citas previas, consejería, terapia dual y se prescribió analgésico.
+2. Trabajadoras del hogar no remuneradas de 22 a 25 años con secundaria y sin hijos. Menarca ligeramente tardía respecto al promedio: a los 13 años. Recibieron terapia dual y se desconoce si hubo complicaciones.
+3. Trabajadoras del hogar no remuneradas de 22 a 35 años con secundaria y dos hijos en promedio. No ocupan MPF y acuden con una cita previa y siete semanas de gestación, recibe terapia dual y sin dolor después del procedimiento.
+4. Trabajadoras del hogar no remuneradas de 30 a 35 años con secundaria, en unión libre con uno o más hijos y acuden acompañadas por su pareja. Es referida de otra unidad  con tres o más citas previas, hubo dolor por lo que se prescribió analgésico.
+5. Alta frecuencia en 2020, personas de diferentes niveles educativos (pocos sin acceso a la educación) con edades entre 22 a 25 sin hijos ni MPF previo. Recibieron consejería y no se complica el procedimiento ni tuvieron dolor después de él.
     - La minoría de mujeres separadas y/o desempleadas están en este grupo.
 <br>
 
 &#x26A0; **Semáforo de vulnerabilidad AMARILLO**
-9. No se conoce la fecha de la ILE, estudiantes o empleadas entre 19 y 29 años sin hijos. Acude acompañada de alguien de confianza, directamente a ser atendida por especialidad de gineco-obstetricia con seis a ocho semanas de gestación, no hay dolor después del procedimiento.
-10. Mujeres mexiquenses que acuden en 2017 de 22 a 25 años de edad, empleadas y sin hijos. Sin MPF previo y después se deciden por implante. Recibieron consejería y terapia dual, no se complica el procedimiento.
-
-<br><br>
+1. No se conoce la fecha de la ILE, estudiantes o empleadas entre 19 y 29 años sin hijos. Acude acompañada de alguien de confianza, directamente a ser atendida por especialidad de gineco-obstetricia con seis a ocho semanas de gestación, no hay dolor después del procedimiento.
+2. Mujeres mexiquenses que acuden en 2017 de 22 a 25 años de edad, empleadas y sin hijos. Sin MPF previo y después se deciden por implante. Recibieron consejería y terapia dual, no se complica el procedimiento.
+<br>
 
 Aún cuando no se utilizó la variable fecha (ni en ninguna división como año, trimestre, mes) para generar los clústers, es muy interesante cómo los 10 grupos obtenidos (y a su vez agrupados por semáforo de vulnerabilidad) tienen tendencias notables a lo largo del tiempo.
 
@@ -215,7 +213,7 @@ Aún cuando no se utilizó la variable fecha (ni en ninguna división como año,
 
 ![Alt text](media/ILE_tendencia_trimestral.png?raw=true "ILE: Tendencia trimestral por semáforo")
 <div align="center"><i>Fuente: Elaboración propia con resultado del modelo ILE</i></div>
-<br>
+<br><br>
 
 ## Propuestas y conclusiones
 
@@ -236,6 +234,9 @@ Los siguientes pasos para incrementar aún más el valor de los datos públicos,
 - Para LM, generar clusters de las llamadas recibidas con el objetivo de crear campañas para la prevención de los casos, es decir, buscar reducir la cantidad de llamadas como consecuencia de campañas efectivas y no por desconocimiento de la existencia de la línea. Dicha segmentación deberá realizarse dentro de cada uno de los tres servicios para obtener una distribución de grupos mucho más efectiva.
 - Para ILE, modelar el pronóstico para cada grupo obtenido y así como con los servicios de LM, se podrían distribuir los recursos y difusión oportunamente, anticipando la demanda y necesidad de cada persona gestante que decide interrumpir su embarazo.
 
-**¡¡¡GRACIAS!!!!**
+<br>
+<br>
+
+<div align="center"><strong>¡¡¡GRACIAS!!!!</strong></div>
 
 > El documento presentado se ubica en este [link](https://docs.google.com/document/d/1mNU70JAsVT5-yrPMIfRxTJuGtVDPpv96FVTullAEqpc/edit?usp=sharing)
