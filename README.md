@@ -1,6 +1,8 @@
 # Concurso con datos abiertos de la CDMX:
 ## Se modelan datos de Interrupción Legal del Embarazo y llamadas a la Línea Mujeres, tanto clustering como pronóstico 💜
 
+Colaboración con: @bcisnerose
+
 ### Estructura del repositorio:
     .
     ├── ...
@@ -23,7 +25,7 @@
 
 <br><br>
 
-## Proyecto: Mujeres - Merecemos ser más que una estadística
+## Mujeres - Merecemos ser más que una estadística
 
 ### ¿De qué debemos hablar?
 
@@ -234,9 +236,9 @@ Los siguientes pasos para incrementar aún más el valor de los datos públicos,
 - Para LM, generar clusters de las llamadas recibidas con el objetivo de crear campañas para la prevención de los casos, es decir, buscar reducir la cantidad de llamadas como consecuencia de campañas efectivas y no por desconocimiento de la existencia de la línea. Dicha segmentación deberá realizarse dentro de cada uno de los tres servicios para obtener una distribución de grupos mucho más efectiva.
 - Para ILE, modelar el pronóstico para cada grupo obtenido y así como con los servicios de LM, se podrían distribuir los recursos y difusión oportunamente, anticipando la demanda y necesidad de cada persona gestante que decide interrumpir su embarazo.
 
-<br>
-<br>
+<br><br>
 
 <div align="center"><strong>¡¡¡GRACIAS!!!!</strong></div>
+<br><br>
 
 > El documento presentado se ubica en este [link](https://docs.google.com/document/d/1mNU70JAsVT5-yrPMIfRxTJuGtVDPpv96FVTullAEqpc/edit?usp=sharing)
