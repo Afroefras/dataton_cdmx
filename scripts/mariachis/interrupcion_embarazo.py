@@ -54,7 +54,7 @@ class InterrupcionEmbarazo(BaseClass):
                     orig_bins = qcut(df[age_col], q=4, retbins=True, duplicates='drop')[-1]
                     age_dict[age_col] = list(orig_bins[:-1])
 
-        # Función para convertir float:1.0 --> str:'01'
+        # Función para convertir float: 1.0 --> str: '01'
         def two_char(n): return str(int(n)).zfill(2)
 
         # Crear rangos de variables numéricas
@@ -129,6 +129,9 @@ class InterrupcionEmbarazo(BaseClass):
         return df, cluster_pipe
 
     def build_tad(self, df: DataFrame, date_col='fingreso', **kwargs) -> DataFrame:
+        '''
+        Aplica la función de multishift con un paso antes: Omitir los registros sin fecha
+        '''
         df = df[df[date_col]!='DESCONOCIDO'].copy()
         X, y = self.apply_multishift(df, date_col=date_col, id_cols=['nombre'], aggfunc={'n':'count'}, **kwargs)
         return X,y
