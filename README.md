@@ -84,7 +84,7 @@ La información es importada desde archivos en formato .csv* y se emplea el leng
 4. **Re-entrenamiento del modelo** con todas las observaciones disponibles, esto después de haber obtenido un porcentaje de error aceptable.
 5. **Generación del pronóstico** y bandas de confianza, con una probabilidad del 80%, de las siguientes 52 semanas.
 
-<br><br>
+<br>
 
 [Interrupción Legal del Embarazo](https://datos.cdmx.gob.mx/dataset/interrupcion-legal-del-embarazo)
 
@@ -101,7 +101,7 @@ La información es importada desde archivos en formato .csv* y se emplea el leng
 
 <br><br>
 
-¿Qué descubrimos?
+### ¿Qué descubrimos?
 
 
 Sin duda los hallazgos generaron un impacto, no siempre son agradables pero se tiene la responsabilidad de difundirlos y proponer estrategias para mitigar la desigualdad que puedan presentar, directa o indirectamente.
@@ -149,13 +149,29 @@ Por último y no por ello menos importante, el modelo **Psicológico** también 
 
 La métrica utilizada para evaluar el comportamiento de cada modelo de series de tiempo fue el error porcentual absoluto medio (MAPE por sus siglás en inglés: Mean Absolute Percentage Error). Cabe señalar que los datos atípicos pueden afectar dicho error, es por ello que para el modelo Médico se excluyeron dichos registros atípicos debido al inicio de la pandemia en 2020.
 
-<div align="center"><i>Tabla 1. MAPE por modelo, sin tomar en cuenta registros atípicos</i></div>
-
-|Métrica|**Jurídico**|**Médico**|**Psicológico**|
+*Tabla 1. MAPE por modelo, sin tomar en cuenta registros atípicos*
+|Métrica|Jurídico|Médico|Psicológico|
 |:---:|:---:|:---:|:---:|
-|MAPE|17%|21%|16%|
-<div align="center"><i>Fuente: Elaboración propia con resultados de modelación LM</i></div>
+|**MAPE**|17%|21%|16%|
+*Fuente: Elaboración propia con resultados de modelación LM*
 <br>
 
+<br><br>
+
+Ahora, respecto a los **hallazgos de la ILE**, descubrimos que parece haber una tendencia a la baja desde 2016, sin embargo a partir de 2019 se tiene un ascenso en la tendencia de la ILE. En definitiva a partir de abril 2020, la tendencia cambia radicalmente lo que nos hace preguntarnos: ¿Cuántos embarazos no deseados ocurrieron sin oportunidad de asistir a la ILE?
+
+<div align="center"><i>Gráfica 7. Cantidad de personas gestantes (en miles) pre-pandemia</i></div>
+
+![Alt text](media/ILE_tendencia_mensual.png?raw=true "ILE: tendencia mensual")
+<div align="center"><i>Fuente: Elaboración propia con datos de ILE</i></div>
+<br>
+
+Adicionalmente, el 64% de las personas gestantes que acuden a la ILE provienen de la CDMX y el 31% del Estado de México. El 5% restante está centralizado geográficamente en el país, esto significa falta de difusión a los estados que están alejados de la capital, tal es el caso de Campeche: desde 2016 han asistido a la ILE solamente 5 personas.
+
+Es muy importante dejar claro que aplicar un algoritmo de clustering para encontrar grupos con características en común no significa solamente catalogar registros, si no que **se respeta la individualidad de cada persona gestante** y confiamos en las herramientas que la estadística nos ofrece para generar mejores soluciones. Dicho esto, las características de cada grupo son:
+
+(&#x1F536;)
+(&#x26A0;)
+(&#x203C;)
 
 > Se presenta el documento en este [link](https://docs.google.com/document/d/1mNU70JAsVT5-yrPMIfRxTJuGtVDPpv96FVTullAEqpc/edit?usp=sharing)
