@@ -36,8 +36,8 @@ from mariachis._base import BaseClass
 test = BaseClass(BASE_DIR: str, FILE_NAME: str)
 ```
 *Donde:*
-- *`BASE_DIR` es el directorio donde se exportará el archivo en formato `.csv`*
-- *`FILE_NAME` es el nombre que se desea para el archivo a exportar*
+- `BASE_DIR` *es el directorio donde se exportará el archivo en formato* `.csv`
+- `FILE_NAME` *es el nombre que se desea para el archivo a exportar*
 
 <br>
 
@@ -46,11 +46,16 @@ test = BaseClass(BASE_DIR: str, FILE_NAME: str)
 df = test.full_import(resource_id: str=RESOURCE_ID, api: bool=True, api_export: bool=True, **kwargs)
 ```
 *Donde:*
-- *`RESOURCE_ID` es el identificador de los datos*
-    - *Para ILE: `932b56bf-c5ec-4815-9814-370d58754002`*
-    - *Para LM: `43bc1889-4e63-48c8-b67c-8b0dc842b5c5`*
-- *api_export es para exportar la tabla obtenida vía API y será guardada en `BASE_DIR` como `FILE_NAME.csv`*
-- *api es para indicar que los datos serán importados desde la API, al indicar `api=False` debe existir un archivo llamado `FILE_NAME.csv` en el directorio `BASE_DIR`*
+- `RESOURCE_ID` *es el identificador de los datos*
+    - *Para ILE:* `932b56bf-c5ec-4815-9814-370d58754002`
+    - *Para LM:* `43bc1889-4e63-48c8-b67c-8b0dc842b5c5`
+- *api_export es para exportar la tabla obtenida vía API y será guardada en* `BASE_DIR` *como *`FILE_NAME.csv`
+- *api es para indicar que los datos serán importados desde la API, al indicar* `api=False` *debe existir un archivo llamado* `FILE_NAME.csv` *en el directorio* `BASE_DIR`
+- *\*\*kwargs son los argumentos que puede recibir **uno** de los siguientes métodos (para mayor detalle, véase* `_base.py`*):*
+    1. `get_api`
+    2. `api_export`
+    3. `get_csv`
+
 
 <br><br>
 
