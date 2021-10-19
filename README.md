@@ -1,7 +1,7 @@
 # Concurso con datos abiertos de la CDMX:
 ## Se modelan datos de Interrupción Legal del Embarazo y llamadas a la Línea Mujeres, tanto clustering como pronóstico 💜
 
-Colaboración con: @bcisnerose
+Colaboración con: **@bcisnerose**
 
 ### Estructura del repositorio:
     .
@@ -21,9 +21,39 @@ Colaboración con: @bcisnerose
     │   ├── ILE_03_Pronóstico.ipynb     # Primer acercamiento al siguiente paso, pronosticar la cantidad de ILE por clúster obtenido en notebook anterior
     │   ├── ILE_04_Geoloc.ipynb         # Unión con localidades para conocer la distribución de cada clúster
     │   └── Línea_Mujeres.ipynb         # Modelo de pronóstico para llamadas a la LM
-    └── requirements.txt                # Instalar las librerías necesarias con el comando: `pip install -r requirements.txt`
+    └── requirements.txt                # Instalar las librerías necesarias con el comando: pip install -r requirements.txt
 
 <br><br>
+
+# Importar vía API
+
+Para obtener los [datos abiertos de CDMX](https://datos.cdmx.gob.mx/) directo de la API:
+
+1. Instanciar la clase ubicada en mariachis/_base.py
+```python
+from mariachis._base import BaseClass
+
+test = BaseClass(BASE_DIR: str, FILE_NAME: str)
+```
+*Donde:*
+- *`BASE_DIR` es el directorio donde se exportará el archivo en formato `.csv`*
+- *`FILE_NAME` es el nombre que se desea para el archivo a exportar*
+
+2. Importar los datos a un DataFrame
+```python
+df = test.full_import(resource_id: str=RESOURCE_ID, api: bool=True, api_export: bool=True, **kwargs)
+```
+*Donde:*
+- *RESOURCE_ID es el identificador de los datos*
+    - *Para ILE: **`932b56bf-c5ec-4815-9814-370d58754002`***
+    - *Para LM: **`43bc1889-4e63-48c8-b67c-8b0dc842b5c5`***
+- *api_export es para exportar la tabla obtenida vía API y será guardada como `FILE_NAME.csv`*
+- *api es para indicar que los datos serán importados desde la API, al indicar `api=False` debe existir un archivo `.csv` llamado `FILE_NAME` en el directorio `BASE_DIR`*
+
+<br><br>
+
+# Presentación de proyecto
+<br>
 
 ## Mujeres - Merecemos ser más que una estadística
 
