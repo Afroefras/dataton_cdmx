@@ -65,9 +65,11 @@ La información es importada desde archivos en formato .csv* y se emplea el leng
 1. **Agrupación semanal** del número de llamadas recibidas.
 2. **Tratamiento de datos atípicos** mediante el método [Hampel Filter](https://medium.com/wwblog/clean-up-your-time-series-data-with-a-hampel-filter-58b0bb3ebb04#:~:text=A%20Hampel%20filter%20is%20a,them%20with%20more%20representative%20values.&text=For%20any%20point%20in%20the,it%20with%20the%20window's%20median.). El cual considera la mediana de las observaciones tomando una ventana de tiempo. Si una muestra difiere de la mediana en más de k desviaciones estándar, se considera un dato atípico y se reemplaza por la mediana. Para el presente trabajo consideraremos k=3 y una ventana de tiempo de 10 periodos.
 
-*Gráfica 1. Aplicación de Hampel Filter para la serie de tiempo de llamadas con servicio Psicológico (atípicos: azul)*
+<div align="center"><i>Gráfica 1. Aplicación de Hampel Filter para la serie de tiempo de llamadas con servicio Psicológico (atípicos: azul)</i></div>
+
 ![Alt text](media/Hampel_Filter.png?raw=true "Hampel Filter")
-*Fuente: Elaboración propia con imputación de valores atípicos*
+<div align="center"><i>Fuente: Elaboración propia con imputación de valores atípicos</i></div>
+
 
 3. **Entrenamiento del modelo** de series de tiempo para la etapa de evaluación, se utiliza el modelo de Prophet, el fue desarrollado por la comunidad de Facebook. Las últimas 52 semanas de las ya sucedidas no serán consideradas al momento de entrenar para poder evaluar el ajuste que tiene el modelo ante la historia, obteniendo el porcentaje de error (MAPE) y disminuirlo.
 4. **Re-entrenamiento del modelo** con todas las observaciones disponibles, esto después de haber obtenido un porcentaje de error aceptable.
