@@ -1,10 +1,11 @@
 # Concurso con datos abiertos de la CDMX
-========================================
+=============================================
 
 ### Estructura del repositorio:
     .
     ├── ...
     ├── media                           # Directorio con imágenes para README
+    │   └── ...
     ├── scripts                         # Directorio con el código necesario para analizar y modelar ILE y LM
     │   ├── mariachis                   # Directorio para ocupar clases y métodos
     │   │   ├── __init__.py             # El folder "mariachis" se puede trabajar de forma mdoular
@@ -75,7 +76,7 @@ La información es importada desde archivos en formato .csv* y se emplea el leng
 
 <div align="center"><i>Gráfica 1. Aplicación de Hampel Filter para la serie de tiempo de llamadas con servicio Psicológico (atípicos: azul)</i></div>
 
-![Alt text](media/Hampel_Filter.png?raw=true "Hampel Filter")
+![Alt text](media/LM_Hampel_Filter.png?raw=true "Hampel Filter")
 <div align="center"><i>Fuente: Elaboración propia con imputación de valores atípicos</i></div>
 <br>
 
@@ -106,11 +107,11 @@ La información es importada desde archivos en formato .csv* y se emplea el leng
 
 Sin duda los hallazgos generaron un impacto, no siempre son agradables pero se tiene la responsabilidad de difundirlos y proponer estrategias para mitigar la desigualdad que puedan presentar, directa o indirectamente.
 
-Por parte de la LM, se notó que la cantidad de llamadas para atender temas relacionados con la psicología van en aumento con el paso de los años, además se pronostica que para el 2022 se continúe con una tendencia positiva. Esto puede ser interpretado desde dos perspectivas: existe mayor conciencia respecto a las emociones y que los servicios psicológicos sean más requeridos por el aumento en casos de depresión y ansiedad en los últimos años, debido al confinamiento y otros problemas sociales que nos rodean.
+Por parte de la LM, se notó que la cantidad de llamadas para atender temas relacionados con la psicología van en aumento con el paso de los años, además se pronostica que para el 2022 se continúe con una tendencia positiva. Esto puede ser interpretado desde dos perspectivas: existe mayor conciencia respecto a las emociones y que los servicios psicológicos sean más requeridos por el [aumento en casos de depresión y ansiedad](https://cnnespanol.cnn.com/2021/10/11/cuarta-parte-poblacion-mundial-ansiedad-depresion-covid-19-trax/) en los últimos años, debido al confinamiento y otros problemas sociales que nos rodean.
 
 <div align="center"><i>Gráfica 2. Distribución de llamadas por tipo de servicio</i></div>
 
-![Alt text](media/Dist_Servicios_anual.png?raw=true "Distribución de Servicios por año")
+![Alt text](media/LM_Dist_Servicios_anual.png?raw=true "Distribución de Servicios por año")
 <div align="center"><i>Fuente: Elaboración propia con datos de LM</i></div>
 <br>
 
@@ -119,7 +120,7 @@ Partiendo del hecho de que el servicio de asesorías está disponible los 365 d�
 
 <div align="center"><i>Gráfica 3. Distribución de llamadas por día de la semana y año</i></div>
 
-![Alt text](media/Dist_Servicios_semanal.png?raw=true "Distribución de Servicios por día de la semana")
+![Alt text](media/LM_Dist_Servicios_semanal.png?raw=true "Distribución de Servicios por día de la semana")
 <div align="center"><i>Fuente: Elaboración propia con datos de LM</i></div>
 <br>
 
@@ -168,10 +169,73 @@ Ahora, respecto a los **hallazgos de la ILE**, descubrimos que parece haber una 
 
 Adicionalmente, el 64% de las personas gestantes que acuden a la ILE provienen de la CDMX y el 31% del Estado de México. El 5% restante está centralizado geográficamente en el país, esto significa falta de difusión a los estados que están alejados de la capital, tal es el caso de Campeche: desde 2016 han asistido a la ILE solamente 5 personas.
 
+<div align="center"><i>Imagen 1. Mapa de calor: frecuencia de ILE (sin contar CDMX ni Estado de México)</i></div>
+
+![Alt text](media/ILE_Heatmap.png?raw=true "ILE: Mapa de calor MX")
+<div align="center"><i>Fuente: Elaboración propia en sitio web: DanielPinero.com</i></div>
+<br>
+
 Es muy importante dejar claro que aplicar un algoritmo de clustering para encontrar grupos con características en común no significa solamente catalogar registros, si no que **se respeta la individualidad de cada persona gestante** y confiamos en las herramientas que la estadística nos ofrece para generar mejores soluciones. Dicho esto, las características de cada grupo son:
 
-(&#x1F536;)
-(&#x26A0;)
-(&#x203C;)
+&#x203C; **Semáforo de vulnerabilidad ROJO**
+1. Con alta incidencia en 2016, provenientes en su mayoría del Estado de México y Ciudad de México siendo empleadas, con edades entre 26 a 29 años y un hijo en promedio, son quienes usaban condón y no especifican Método de Planificación familiar (MPF) posterior, además se desconocen abortos, cesáreas, ILE previas, menarca e Inicio de Vida Sexual Activa (IVSA). Acudieron con siete Semanas De Gestación (SDG) y recibieron terapia dual, además se desconocen complicaciones en el procedimiento.
+    - Ahora bien, hay mujeres que pertenecen a un grupo minoritario pero no representan a todo el clúster aún cuando tienen características similares con él, sin embargo es importante hacer mención de estas minorías que pueden interpretarse como un subconjunto del clúster. En este, la minoría de mujeres tienen una o más de las siguientes características:
+        - Máximo primaria o incluso sin acceso a la educación
+        - Mantienen el mismo método anticonceptivo antes y después del ILE
+        - Tienen algún seguro (IMSS, ISSSTE, etc.)
+        - Mujeres casadas
+        - No firmaron o se desconoce si firmaron el consentimiento informado
+        - IVSA menor a los 8 años
+        - Hay quienes han tenido 2 o más gestas
+        
+2. Acudieron en su mayoría durante 2019, del total de este grupo, son estudiantes de preparatoria con 19 a 21 años y sin hijos. Primera menstruación (Menarca) a los 12 años, IVSA cinco años después por lo que es muy probable que el procedimiento de ILE sea de su primera gesta.
+    - Es muy importante recalcar que del universo de mujeres que tuvieron complicaciones en la ILE, la mayoría está en este clúster
 
-> Se presenta el documento en este [link](https://docs.google.com/document/d/1mNU70JAsVT5-yrPMIfRxTJuGtVDPpv96FVTullAEqpc/edit?usp=sharing)
+3. Trabajadoras del hogar no remuneradas con preparatoria, de 22 a 29 años en unión libre con 1 hijo. Mantienen el condón como MPF después del procedimiento. Acuden con diez semanas o más de gestación sin citas previas. Presencia de dolor después del procedimiento por lo que se prescriben analgésicos.
+<br>
+
+&#x1F536; **Semáforo de vulnerabilidad NARANJA**
+4. Mujeres foráneas que acuden en 2018, o son estudiantes o no contestaron ocupación, con edades de 19 a 21 años y sin hijos. Recibieron dos citas previas, consejería, terapia dual y se prescribió analgésico.
+5. Trabajadoras del hogar no remuneradas de 22 a 25 años con secundaria y sin hijos. Menarca ligeramente tardía respecto al promedio: a los 13 años. Recibieron terapia dual y se desconoce si hubo complicaciones.
+6. Trabajadoras del hogar no remuneradas de 22 a 35 años con secundaria y dos hijos en promedio. No ocupan MPF y acuden con una cita previa y siete semanas de gestación, recibe terapia dual y sin dolor después del procedimiento.
+7. Trabajadoras del hogar no remuneradas de 30 a 35 años con secundaria, en unión libre con uno o más hijos y acuden acompañadas por su pareja. Es referida de otra unidad  con tres o más citas previas, hubo dolor por lo que se prescribió analgésico.
+8. Alta frecuencia en 2020, personas de diferentes niveles educativos (pocos sin acceso a la educación) con edades entre 22 a 25 sin hijos ni MPF previo. Recibieron consejería y no se complica el procedimiento ni tuvieron dolor después de él.
+    - La minoría de mujeres separadas y/o desempleadas están en este grupo.
+<br>
+
+&#x26A0; **Semáforo de vulnerabilidad AMARILLO**
+9. No se conoce la fecha de la ILE, estudiantes o empleadas entre 19 y 29 años sin hijos. Acude acompañada de alguien de confianza, directamente a ser atendida por especialidad de gineco-obstetricia con seis a ocho semanas de gestación, no hay dolor después del procedimiento.
+10. Mujeres mexiquenses que acuden en 2017 de 22 a 25 años de edad, empleadas y sin hijos. Sin MPF previo y después se deciden por implante. Recibieron consejería y terapia dual, no se complica el procedimiento.
+
+<br><br>
+
+Aún cuando no se utilizó la variable fecha (ni en ninguna división como año, trimestre, mes) para generar los clústers, es muy interesante cómo los 10 grupos obtenidos (y a su vez agrupados por semáforo de vulnerabilidad) tienen tendencias notables a lo largo del tiempo.
+
+<div align="center"><i>Gráfica 8. Personas gestantes (en miles) por año-trimestre y semáforo de vulnerabilidad</i></div>
+
+![Alt text](media/ILE_tendencia_trimestral.png?raw=true "ILE: Tendencia trimestral por semáforo")
+<div align="center"><i>Fuente: Elaboración propia con resultado del modelo ILE</i></div>
+<br>
+
+## Propuestas y conclusiones
+
+Por un lado, tomando en cuenta el modelo de series de tiempo sobre la recepción de llamadas en la Linea Mujeres para las siguientes 52 semanas se propone el uso de datos en dos perspectivas: 
+
+1. Administración de los recursos: Al conocer las futuras necesidades de las usuarias, tenemos visibilidad en cuanto a la cantidad de profesionales que deberán atender dicha demanda. Ayuda ante la toma de decisiones para futuras contrataciones o redistribución de los actuales. 
+2. Visibilidad para las instituciones: Dado que la Línea Mujeres también ayuda a canalizar los casos con instituciones que ayuden a darle seguimiento, el modelo de series de tiempo podría ser una indicador para dichas instituciones sobre los futuros casos que podrían recibir.
+
+Por otro lado para el modelo ILE, la agrupación de personas gestantes con decisión de ILE y a su vez, la distribución en las diferentes alcaldías y municipios, facilita una personalización de campañas con un enfoque directo: planificación familiar en jóvenes, seguridad para menores de edad, medicina preventiva para evitar complicaciones, propuesta de MPF según la edad y otras características que el modelo ya captura en su generalidad. Además, conocer dónde se ubican las minorías con problemas sociales importantes nos permite atacarlos de raíz, evitando los embarazos no deseados ocupando las herramientas estadísticas que hoy en día la tecnología pone al alcance de todos, tanto en este modelo ILE como en el modelo de la Línea Mujeres, para brindar la atención que cada mujer merece, para lograr lo que merecemos: ser más que una estadística.
+
+<div align="center"><i>Gráfica 9. Distribución porcentual de semáforo por clusters de localidades ILE</i></div>
+
+![Alt text](media/ILE_semaforo_localidad.png?raw=true "ILE: Distribución de semáforo por localidades")
+<div align="center"><i>Fuente: Elaboración propia con resultado de clustering por localidad según distribución de grupos ILE</i></div>
+<br>
+
+Los siguientes pasos para incrementar aún más el valor de los datos públicos, se propone:
+- Para LM, generar clusters de las llamadas recibidas con el objetivo de crear campañas para la prevención de los casos, es decir, buscar reducir la cantidad de llamadas como consecuencia de campañas efectivas y no por desconocimiento de la existencia de la línea. Dicha segmentación deberá realizarse dentro de cada uno de los tres servicios para obtener una distribución de grupos mucho más efectiva.
+- Para ILE, modelar el pronóstico para cada grupo obtenido y así como con los servicios de LM, se podrían distribuir los recursos y difusión oportunamente, anticipando la demanda y necesidad de cada persona gestante que decide interrumpir su embarazo.
+
+**¡¡¡GRACIAS por la oportunidad de intentar mejorar nuestra comunidad con datos!!!!**
+
+> El documento presentado se ubica en este [link](https://docs.google.com/document/d/1mNU70JAsVT5-yrPMIfRxTJuGtVDPpv96FVTullAEqpc/edit?usp=sharing)
