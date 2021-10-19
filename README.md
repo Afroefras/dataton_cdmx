@@ -25,7 +25,7 @@ Colaboración con: **@bcisnerose**
 
 <br>
 
-# Importar vía API
+# Importar datos vía API
 
 Para obtener los [datos abiertos de CDMX](https://datos.cdmx.gob.mx/) directo de la API:
 
@@ -46,11 +46,11 @@ test = BaseClass(BASE_DIR: str, FILE_NAME: str)
 df = test.full_import(resource_id: str=RESOURCE_ID, api: bool=True, api_export: bool=True, **kwargs)
 ```
 *Donde:*
-- *RESOURCE_ID es el identificador de los datos*
-    - *Para ILE: **`932b56bf-c5ec-4815-9814-370d58754002`***
-    - *Para LM: **`43bc1889-4e63-48c8-b67c-8b0dc842b5c5`***
-- *api_export es para exportar la tabla obtenida vía API y será guardada como `FILE_NAME.csv`*
-- *api es para indicar que los datos serán importados desde la API, al indicar `api=False` debe existir un archivo `.csv` llamado `FILE_NAME` en el directorio `BASE_DIR`*
+- *`RESOURCE_ID` es el identificador de los datos*
+    - *Para ILE: `932b56bf-c5ec-4815-9814-370d58754002`*
+    - *Para LM: `43bc1889-4e63-48c8-b67c-8b0dc842b5c5`*
+- *api_export es para exportar la tabla obtenida vía API y será guardada en `BASE_DIR` como `FILE_NAME.csv`*
+- *api es para indicar que los datos serán importados desde la API, al indicar `api=False` debe existir un archivo llamado `FILE_NAME.csv` en el directorio `BASE_DIR`*
 
 <br><br>
 
@@ -270,7 +270,7 @@ Los siguientes pasos para incrementar aún más el valor de los datos públicos,
 
 <br><br>
 
-<div align="center"><strong>¡¡¡GRACIAS!!!!</strong></div>
+<div align="center"><strong>¡GRACIAS!</strong></div>
 <br><br>
 
 > El documento presentado se ubica en este [link](https://docs.google.com/document/d/1mNU70JAsVT5-yrPMIfRxTJuGtVDPpv96FVTullAEqpc/edit?usp=sharing)
