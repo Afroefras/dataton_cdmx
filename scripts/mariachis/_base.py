@@ -99,7 +99,7 @@ class BaseClass:
         '''
         export_name = f'{self.file_name}.csv' if name_suffix==None else f'{self.file_name}_{name_suffix}.csv'
         df.to_csv(self.base_dir.joinpath(export_name), **kwargs)
-        self.cool_print(f'Archivo: {export_name}.csv fue exportado exitosamente en:\n{self.base_dir}')
+        self.cool_print(f'Archivo: {export_name} fue exportado exitosamente en:\n{self.base_dir}')
 
     
     def api_export(self, export_kwargs: Dict={}, **api_kwargs) -> DataFrame: 
