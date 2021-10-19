@@ -1,5 +1,4 @@
 # Concurso con datos abiertos de la CDMX
-=============================================
 
 ### Estructura del repositorio:
     .
@@ -8,7 +7,7 @@
     │   └── ...
     ├── scripts                         # Directorio con el código necesario para analizar y modelar ILE y LM
     │   ├── mariachis                   # Directorio para ocupar clases y métodos
-    │   │   ├── __init__.py             # El folder "mariachis" se puede trabajar de forma mdoular
+    │   │   ├── __init__.py             # El folder "mariachis" se puede trabajar de forma modular
     │   │   ├── _base.py                # Clase base, con métodos como extraer los datos vía API, exportarlos, entrenar modelación supervisada y no supervisada, etc
     │   │   ├── ile.py                  # Clase hija de BaseClass, con métodos adicionales específicos para tratar los datos ILE
     │   │   └── localidades.py          # Clase hija de BaseClass, con métodos adicionales específicos para extraer datos de localidades y crear variables de geolocalización
@@ -154,6 +153,7 @@ La métrica utilizada para evaluar el comportamiento de cada modelo de series de
 |Métrica|Jurídico|Médico|Psicológico|
 |:---:|:---:|:---:|:---:|
 |**MAPE**|17%|21%|16%|
+
 *Fuente: Elaboración propia con resultados de modelación LM*
 <br>
 
@@ -236,6 +236,6 @@ Los siguientes pasos para incrementar aún más el valor de los datos públicos,
 - Para LM, generar clusters de las llamadas recibidas con el objetivo de crear campañas para la prevención de los casos, es decir, buscar reducir la cantidad de llamadas como consecuencia de campañas efectivas y no por desconocimiento de la existencia de la línea. Dicha segmentación deberá realizarse dentro de cada uno de los tres servicios para obtener una distribución de grupos mucho más efectiva.
 - Para ILE, modelar el pronóstico para cada grupo obtenido y así como con los servicios de LM, se podrían distribuir los recursos y difusión oportunamente, anticipando la demanda y necesidad de cada persona gestante que decide interrumpir su embarazo.
 
-**¡¡¡GRACIAS por la oportunidad de intentar mejorar nuestra comunidad con datos!!!!**
+**¡¡¡GRACIAS!!!!**
 
 > El documento presentado se ubica en este [link](https://docs.google.com/document/d/1mNU70JAsVT5-yrPMIfRxTJuGtVDPpv96FVTullAEqpc/edit?usp=sharing)
