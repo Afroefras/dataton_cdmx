@@ -23,7 +23,7 @@ Colaboración con: **@bcisnerose**
     │   └── Línea_Mujeres.ipynb         # Modelo de pronóstico para llamadas a la LM
     └── requirements.txt                # Instalar las librerías necesarias con el comando: pip install -r requirements.txt
 
-<br><br>
+<br>
 
 # Importar vía API
 
@@ -38,6 +38,8 @@ test = BaseClass(BASE_DIR: str, FILE_NAME: str)
 *Donde:*
 - *`BASE_DIR` es el directorio donde se exportará el archivo en formato `.csv`*
 - *`FILE_NAME` es el nombre que se desea para el archivo a exportar*
+
+<br>
 
 2. Importar los datos a un DataFrame
 ```python
